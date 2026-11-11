@@ -1,53 +1,259 @@
-/* จัดการโครงสร้างพื้นฐานของหน้าเว็บ */
-body { display: flex; font-family: sans-serif; background-color: #f3f4f6; height: 100vh; overflow: hidden; margin: 0; }
+/* ------------------------------------------------------------------
+   [PingGoChat v1.2.0] คลังดีไซน์ดาร์กโหมดอ้างอิงตามต้นแบบภาพ SoiChat
+   ------------------------------------------------------------------ */
 
-/* 📁 แถบซ้าย: เมนูผู้ใช้งาน */
-.sidebar-left { width: 240px; background: #ffffff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; justify-content: space-between; padding: 16px; }
-.user-profile-box { background: #f9fafb; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 12px; }
-.status-badge { background: #d1fae5; color: #065f46; font-size: 12px; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
+/* ตั้งค่าโทนสีพื้นหลังหลักและโครงสร้าง Layout แบบซ้อนกัน */
+* { box-sizing: border-box; }
+body { 
+    margin: 0; 
+    padding: 0; 
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+    background-color: #1a1a1a; 
+    color: #ffffff; 
+    height: 100vh; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+}
 
-/* 💬 4. [แก้ไขทั้งหมด] ปรับปรุงช่องแชทให้อยู่ตรงกลางหน้าเว็บหลัก */
-.main-content { flex: 1; display: flex; flex-direction: column; background-color: #f9fafb; height: 100%; }
-.filter-bar { background: white; padding: 16px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
-.sub-text { margin: 4px 0 0 0; font-size: 13px; color: #6b7280; }
-.chat-messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-.chat-input-bar { background: white; padding: 16px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; }
-.chat-input-bar input { flex: 1; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; outline: none; font-size: 14px; }
-.chat-input-bar input:focus { border-color: #ec4899; }
-.chat-input-bar button { background: #ec4899; color: white; border: none; padding: 0 24px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-.chat-input-bar button:hover { background: #db2777; }
+/* 💻 1. แถบบาร์เมนูด้านบนสุดของระบบ (Top Navigation Bar) */
+.top-navbar {
+    height: 60px;
+    background-color: #262626;
+    border-bottom: 1px solid #333333;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 10;
+}
+.top-left-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #ffffff;
+}
+.top-menu-center {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+.top-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #b3b3b3;
+    cursor: pointer;
+    font-size: 15px;
+    transition: color 0.2s;
+    text-decoration: none;
+}
+.top-menu-item:hover, .top-menu-item.active {
+    color: #ffffff;
+}
+.badge-count {
+    background-color: #f59e0b;
+    color: #000000;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+}
 
-/* ดีไซน์กล่องฟองข้อความในแชท */
-.msg-row { display: flex; width: 100%; }
-.msg-me { justify-content: flex-end; }
-.msg-other { justify-content: flex-start; }
-.msg-bubble { max-width: 60%; padding: 12px 16px; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-.msg-me .msg-bubble { background: #ec4899; color: white; border-bottom-right-radius: 4px; }
-.msg-other .msg-bubble { background: white; color: #1f2937; border-bottom-left-radius: 4px; border: 1px solid #e5e7eb; }
-.msg-sender { font-size: 11px; opacity: 0.8; display: block; margin-bottom: 4px; font-weight: bold; }
-.msg-text { margin: 0; font-size: 14px; word-break: break-all; }
-.system-msg { text-align: center; color: #9ca3af; font-size: 13px; margin-top: 10px; }
+/* 📦 ส่วนจัดวางแอปหลัก (ซ้าย เมนูลึก / กลาง ตารางรูป / ขวา กล่องแชท) */
+.app-container {
+    flex: 1;
+    display: flex;
+    height: calc(100vh - 60px);
+    width: 100%;
+}
 
-/* 👥 แถบขวา: คลังรายชื่อสมาชิกทั้งหมดบน PC และกล่อง Tags */
-.sidebar-right { width: 280px; background: #ffffff; border-left: 1px solid #e5e7eb; display: flex; flex-direction: column; }
-.sidebar-header { padding: 16px; border-bottom: 1px solid #e5e7eb; }
-.sidebar-header h3 { margin: 0; }
-.member-list-container { flex: 1; overflow-y: auto; }
-.chat-item { padding: 12px; display: flex; align-items: center; gap: 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: all 0.2s; }
-.chat-item:hover { background-color: #f3f4f6; }
-.chat-item.selected { background-color: #fce7f3; border-left: 4px solid #ec4899; }
-.avatar-placeholder { width: 40px; height: 40px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #4b5563; }
-.member-status { font-size: 12px; margin-top: 2px; }
-.online { color: #10b981; }
-.offline { color: #9ca3af; }
-.target-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.user-tag { background: #fce7f3; color: #db2777; padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-.tag-alert { color: #f59e0b; font-size: 13px; font-weight: bold; }
+/* 👤 2. แถบเมนูด้านซ้าย (Sidebar Left - โทนสีเทาเข้ม) */
+.sidebar-left {
+    width: 240px;
+    background-color: #212121;
+    border-right: 1px solid #2d2d2d;
+    display: flex;
+    flex-direction: column;
+    padding: 15px 0;
+}
+.menu-left-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 10px;
+}
+.menu-left-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 15px;
+    color: #cccccc;
+    font-size: 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.menu-left-btn:hover {
+    background-color: #2d2d2d;
+    color: #ffffff;
+}
+.menu-left-btn.active {
+    background-color: #333333;
+    color: #ec4899;
+    font-weight: bold;
+}
 
-/* 🔒 3. หน้าต่างกรอบสมัครสมาชิก Overlay ส่วนกลาง */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; }
-.modal-box { background: white; border-radius: 24px; padding: 32px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 20px 25px rgba(0,0,0,0.15); }
-.input-text { width: 100%; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; font-size: 14px; outline: none; margin-bottom: 16px; box-sizing: border-box; }
-.btn-pink { width: 100%; background-color: #ec4899; color: white; font-weight: bold; padding: 14px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; transition: background 0.2s; }
-.btn-pink:hover { background-color: #db2777; }
+
+/* 🎨 3. พื้นที่เนื้อหาตรงกลาง (Center Main Content) */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #121212;
+}
+
+/* แถบตัวกรองค้นหาด้านบนของตารางรูปภาพ */
+.filter-bar {
+    background-color: #1a1a1a;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-bottom: 1px solid #2d2d2d;
+}
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #888888;
+    cursor: pointer;
+}
+.filter-item:hover { color: #ffffff; }
+
+/* ตารางกริดแสดงการ์ดรูปโปรไฟล์สมาชิก */
+.grid-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+}
+
+/* สไตล์การ์ดสมาชิกแต่ละคน */
+.user-card {
+    background-color: #262626;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 1 / 1;
+    cursor: pointer;
+    border: 1px solid #333333;
+}
+.user-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* แถบคาดด้านบนแสดงระยะทาง */
+.card-distance-tag {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: #ffffff;
+}
+
+/* แถบข้อมูลด้านล่างของการ์ด (ชื่อ + จุดสถานะออนไลน์) */
+.card-bottom-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+    padding: 8px 6px 4px 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #10b981;
+    border-radius: 50%;
+    display: inline-block;
+}
+.status-dot.offline { background-color: #6b7280; }
+
+/* 💬 4. แถบขวาสุด: รายชื่อกล่องข้อความล่าสุด (Sidebar Right) */
+.sidebar-right {
+    width: 260px;
+    background-color: #212121;
+    border-left: 1px solid #2d2d2d;
+    display: flex;
+    flex-direction: column;
+}
+.recent-chat-header {
+    padding: 12px;
+    border-bottom: 1px solid #2d2d2d;
+    font-size: 14px;
+    font-weight: bold;
+    color: #888888;
+}
+.recent-chat-list {
+    flex: 1;
+    overflow-y: auto;
+}
+.recent-chat-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-bottom: 1px solid #1a1a1a;
+    cursor: pointer;
+}
+.recent-chat-item:hover { background-color: #2d2d2d; }
+.mini-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #444444;
+    overflow: hidden;
+}
+.mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.chat-info-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.chat-user-name { font-size: 13px; font-weight: bold; color: #ffffff; }
+.chat-preview-text {
+    font-size: 11px;
+    color: #888888;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.chat-time-tag { font-size: 10px; color: #555555; align-self: flex-end; }
+
+/* ระบบหน้ากากสมัครสมาชิกโมดอล */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: #262626; border-radius: 16px; padding: 30px; max-width: 360px; width: 100%; text-align: center; border: 1px solid #333333; }
+.input-text { width: 100%; background: #1a1a1a; border: 1px solid #444444; border-radius: 8px; padding: 12px; font-size: 14px; color: white; outline: none; margin-bottom: 15px; }
+.btn-pink { width: 100%; background-color: #ec4899; color: white; font-weight: bold; padding: 12px; border-radius: 8px; border: none; cursor: pointer; }
 .hidden { display: none !important; }
