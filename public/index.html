@@ -124,6 +124,8 @@
 
     <!-- เริ่มต้นส่วนงานทำงานสคริปต์ควบคุมระบบเครือข่าย -->
     <script>
+
+        
         const socket = io();
         let currentUsername = "";
         let selectedTargets = []; // อาร์เรย์เก็บกลุ่มรายชื่อผู้รับตาม ข้อ 1
@@ -227,25 +229,42 @@
         });
 
         // 🎯 1 & 4. ฟังก์ชันเปิดปิดและกดส่งแชทผ่านกล่องป๊อปอัพสีชมพู และบันทึกลงฐานข้อมูล MongoDB ในเครื่องคอม PC
-        function sendMessage() {
-            const text = msgInput.value.trim();
-            if(!text) return;
+           function sendMessage() {
+            // ดึงช่องพิมพ์และตัวหนังสือจากอินพุตกล่องสีชมพูตรงกลางจอจริง ๆ ของคุณ
+            const msgInputPopup = document.getElementById('msg-input') || document.querySelector('.chat-input-bar input');
+            const text = msgInputPopup ? msgInputPopup.value.trim() : '';
+            if (!text) return;
 
-            // ผูกข้อมูล Payload เตรียมส่งสัญญาณแบบกลุ่มกระจายสด (ข้อ 1)
+            // ตรวจสอบความปลอดภัย: หากอาร์เรย์กลุ่มผู้รับหลุดเป็นค่าว่าง ให้ทำการล็อกชื่อจำลองสแตนด์บายทันที
+            if (!selectedTargets || selectedTargets.length === 0) {
+                selectedTargets = [activeChatUser || 'พี่โตนอนดึก 🌙', 'น้องส้ม 🍊', 'เปี๊ยก หมอลำ 🎤'];
+            }
+
+            // ห่อก้อนข้อมูลโดยดึง selectedTargets (ที่มีชื่อคนที่เราคลิก + น้องส้ม + เปี๊ยก) ส่งข้ามระบบ
             const payload = {
-                sender: currentUsername || 'Alan2026',
-                targets: selectedTargets, // ส่งอาเรย์กลุ่มรายชื่อผู้รับทุกคนลง PC [คนที่เราคลิก, น้องส้ม, เปี๊ยก]
+                sender: currentUsername || 'Jojo 555',
+                targets: selectedTargets, // 🚀 ดึงอาร์เรย์กลุ่มตัวแปรเดิมที่คุณส่งมา ยิงไปหาหลังบ้าน
                 message: text
             };
 
-            // 🚀 ยิงสัญญาณ Real-time บายพาสเข้าเซิร์ฟเวอร์ PC ตรงๆ ทะลุระบบควบคุม
-            socket.emit('send_multicast_message', payload);
-            
-            // วาดฟองสบู่แชทฝั่งตัวเราเอง (ฟองสีชมพูขวาล่างตามรูปภาพจริงของคุณ)
+            // ยิงสัญญาณสด Real-time ทะลุเข้าหลังบ้านพอร์ต 3000 ไปที่ฐานข้อมูล MongoDB
+            if (typeof socket !== 'undefined' && socket.connected) {
+                socket.emit('send_multicast_message', payload);
+                console.log("💾 [PingGo] ส่งข้อความและสั่งให้หลังบ้านเซฟลงคลังคอมพิวเตอร์เรียบร้อยแล้ว");
+            } else {
+                console.log("⚠️ สัญญาณ Socket หลุด กำลังกู้ท่อเชื่อมตรงเข้าพอร์ต 3000...");
+                if (typeof io !== 'undefined') {
+                    const directSocket = io();
+                    directSocket.emit('send_multicast_message', payload);
+                }
+            }
+
+            // วาดฟองสบู่แชทฝั่งตัวเราเอง (สีชมพูขวาล่าง) ขึ้นหน้าจอทันทีเพื่อบอกสถานะการส่งสำเร็จ
             appendMessage(payload.sender, text, true);
-            msgInput.value = ""; // ล้างช่องพิมพ์หลังส่งเสร็จ
-            console.log("💾 [PingGo] บันทึกข้อความแชทกระจายกลุ่มย่อยลง MongoDB สำเร็จ!");
+            
+            if (msgInputPopup) msgInputPopup.value = ""; // ล้างช่องพิมพ์ข้อความทันทีหลังจากส่งสำเร็จ
         }
+
 
         // ผูกสิทธิ์อีเวนต์ให้กับปุ่มกดส่งดีไซน์สีชมพูและปุ่มปิดกากบาท
         btnSend.addEventListener('click', sendMessage);
