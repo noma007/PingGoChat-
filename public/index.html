@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PingGoChat - หน้าแชทหลัก</title>
     <!-- เรียกใช้งาน Tailwind CSS สำหรับแต่งหน้าจอ -->
-    <script src="https://tailwindcss.com"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
     <!-- เรียกใช้งานสคริปต์ Socket.io ลูกข่าย เชื่อมพอร์ต 3000 ของเซิร์ฟเวอร์ PC -->
-    <script src="http://duckdns.org"></script>
+
+    <script src="/socket.io/socket.io.js"></script>
+
 </head>
 <body class="bg-gray-100 font-sans h-screen overflow-hidden flex relative">
 
@@ -149,7 +153,7 @@
 
             // 🟢 เชื่อมระบบ Socket.io เข้ากับลิงก์พอร์ตเครือข่ายเน็ตบ้านคุณ
             try {
-                socket = io("http://duckdns.org");
+                socket = io();
 
               socket.emit("user_connected", { username: myName, acceptedTerms: true });
 
@@ -233,3 +237,4 @@
     </script>
 </body>
 </html>
+
