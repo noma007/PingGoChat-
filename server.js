@@ -3,6 +3,14 @@ const app = express();
 const http = require('http').createServer(app);
 const path = require('path');
 
+// ดึงระบบฐานข้อมูล และ ฟังก์ชันอัปโหลดรูปภาพเข้ามาใช้งานร่วมกัน
+const { connectDB, User, Message } = require('./database');
+const upload = require('./upload');
+
+// สั่งให้เชื่อมต่อไปยังโปรแกรม MongoDB ในเครื่อง PC ของคุณทันทีเมื่อเปิดระบบ
+connectDB();
+
+
 // 🟢 ตั้งค่าเชื่อมต่อระบบ Socket.io รองรับการส่งแชทสดจากภายนอกบ้าน
 const io = require('socket.io')(http, {
   cors: {
@@ -22,6 +30,24 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// 🖼️ ช่องทาง (API) สำหรับให้สมาชิกกดอัปโหลดรูปภาพเข้าอัลบั้มโปรไฟล์
+app.post('/api/upload-album', upload.single('photo'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'กรุณาเลือกไฟล์รูปภาพก่อนค่ะ' });
+        
+        const username = req.body.username; // ดึงชื่อเจ้าของโปรไฟล์
+        const fileUrl = `/uploads/albums/${req.file.filename}`; // พาธรูปภาพที่เซฟในเครื่อง PC
+
+        // บันทึกที่อยู่รูปภาพลงคลังอาร์เรย์ albums ของผู้ใช้ในฐานข้อมูล MongoDB
+        await User.findOneAndUpdate({ username: username }, { $push: { albums: fileUrl } });
+
+        res.json({ success: true, url: fileUrl });
+    } catch (err) {
+        res.status(500).json({ error: 'ระบบเซิร์ฟเวอร์ PC อัปโหลดผิดพลาด: ' + err.message });
+    }
+});
+
 
 // ดักฟังเมื่อมีผู้ใช้งานเชื่อมต่อระบบเครือข่ายเข้ามา (Network Connection)
 io.on('connection', (socket) => {
