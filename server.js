@@ -29,10 +29,21 @@ app.use(express.json());
 // 🎯 1. [วางต่อท้าย] ปลดล็อกสิทธิ์ความปลอดภัยเครือข่าย (CSP Bypass)
 // เพื่ออนุญาตให้เบราว์เซอร์ส่งข้อความสด และคุยกับฐานข้อมูลในคอม PC ได้โดยไม่โดนบล็อก
 // =========================================================================
-app.use((req, res, next) => {
-    res.setHeader("Content-Security-Policy", "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob:; style-src * 'unsafe-inline';");
+ app.use((req, res, next) => {
+    // 1. สั่งลบกฎ Content-Security-Policy ที่ขึ้นค่า 'none' ทิ้งไปเพื่อไม่ให้เบราว์เซอร์สกัดสัญญาณ
+    res.removeHeader("Content-Security-Policy");
+    
+    // 2. ประกาศสิทธิ์ชุดใหม่เปิดท่อส่งข้อมูลสด (Bypass) ให้เข้าออกพอร์ต 3000 ได้อิสระ
+    res.setHeader("Content-Security-Policy", "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline' ws: wss:; img-src * data: blob:; style-src * 'unsafe-inline';");
+    
+    // 3. ปลดล็อกระบบรักษาความปลอดภัยข้ามโดเมน (CORS) เพิ่มเติม
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    
     next();
 });
+
 
 // 🌐 เปิดหน้าแรกของเว็บเมื่อมีการเรียกใช้งานพอร์ต 3000
 app.get('/', (req, res) => {
