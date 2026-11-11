@@ -25,6 +25,10 @@ let activeUsers = {};
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+app.get('/my-profile', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'profile.html'));
+});
+
 // =========================================================================
 // 🎯 1. [วางต่อท้าย] ปลดล็อกสิทธิ์ความปลอดภัยเครือข่าย (CSP Bypass)
 // เพื่ออนุญาตให้เบราว์เซอร์ส่งข้อความสด และคุยกับฐานข้อมูลในคอม PC ได้โดยไม่โดนบล็อก
@@ -58,9 +62,6 @@ app.get('/main', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/my-profile', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'profile.html'));
-});
 
 // =========================================================================
 // 🎯 2. [วางต่อท้าย] ระบบสลับเราเตอร์แชทกลุ่มย่อย บันทึกลง MongoDB PC ถาวร
