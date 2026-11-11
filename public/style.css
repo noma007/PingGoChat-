@@ -257,3 +257,8 @@ body {
 .input-text { width: 100%; background: #1a1a1a; border: 1px solid #444444; border-radius: 8px; padding: 12px; font-size: 14px; color: white; outline: none; margin-bottom: 15px; }
 .btn-pink { width: 100%; background-color: #ec4899; color: white; font-weight: bold; padding: 12px; border-radius: 8px; border: none; cursor: pointer; }
 .hidden { display: none !important; }
+
+ /* 🎯 [วางแทรกท้ายไฟล์ style.css] คำสั่งสำคัญสำหรับล้างปัญหาหน้าเว็บค้าง */
+.hidden {
+    display: none !important;
+}
