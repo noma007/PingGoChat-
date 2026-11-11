@@ -8,30 +8,28 @@ const mongoURI = 'mongodb://127.0.0.1:27017/pinggo_db';
 const connectDB = async () => {
     try {
         await mongoose.connect(mongoURI);
-        console.log('🗄️ [PingGo DB] เชื่อมต่อระบบฐานข้อมูล MongoDB ใน PC สำเร็จแล้ว!');
+        console.log('🗄️ [PingGo DB] เชื่อมต่อระบบฐานข้อมูลเพื่อเก็บสมาชิกสำเร็จ!');
     } catch (err) {
         console.error('❌ ไม่สามารถเชื่อมต่อ MongoDB ได้ กรุณาเปิดโปรแกรม MongoDB Community ในเครื่องก่อนครับ:', err.message);
         process.exit(1); // ปิดระบบหากเชื่อมต่อฐานข้อมูลไม่ได้
     }
 };
 
-// 👤 1. [แก้ไขสมบูรณ์] โครงสร้างตารางจัดเก็บข้อมูลสมาชิก มีรหัสผ่านล็อกไว้ถาวรใน PC
+// 👤 1. [แก้ไขทั้งหมด] โครงสร้างตารางจัดเก็บข้อมูลสมาชิกทุกคนไว้ที่ PC (User Schema)
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
-    password: { type: String, required: true },       // 🔑 เพิ่มฟิลด์เก็บรหัสผ่านสำหรับสมัครสมาชิกและล็อกอิน
-    acceptedTerms: { type: Boolean, default: false }, // เก็บสถานะการกดยอมรับเงื่อนไขใช้งาน
+    acceptedTerms: { type: Boolean, default: true }, // เก็บสถานะการกดยอมรับเงื่อนไขใช้งาน
     avatar: { type: String, default: '' },            // เส้นทางไฟล์รูปโปรไฟล์ใน PC
     albums: [{ type: String }],                       // อาร์เรย์เก็บพาธรูปภาพในอัลบั้มทั้งหมด
     isOnline: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
 });
 
-// 💬 2. โครงสร้างตารางจัดเก็บข้อความแชทส่วนตัว (Private Message Schema)
+// 💬 2. [แก้ไขทั้งหมด] โครงสร้างตารางจัดเก็บข้อความแชท (รองรับการระบุผู้รับพร้อมกันหลายคน)
 const messageSchema = new mongoose.Schema({
     sender: { type: String, required: true },         // ชื่อผู้ส่ง
-    target: { type: String, required: true },         // ชื่อผู้รับ
+    targets: [{ type: String, required: true }],      // [แก้ไข] เปลี่ยนเป็น Array เพื่อเก็บชื่อผู้รับทุกคน (เช่น 1 คน หรือ 2 คนพร้อมกัน)
     message: { type: String, required: true },        // ตัวข้อความสนทนา
-    isRead: { type: Boolean, default: false },        // จุดแจ้งเตือนสีแดงทางขวา
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -45,6 +43,7 @@ module.exports = {
     User,
     Message
 };
+
 
 
         
