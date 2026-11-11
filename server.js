@@ -53,35 +53,62 @@ app.post('/api/upload-album', upload.single('photo'), async (req, res) => {
 io.on('connection', (socket) => {
   console.log('🔌 มีอุปกรณ์เชื่อมต่อเข้ามา รหัส Socket ID: ' + socket.id);
 
-      // 1. รับข้อมูลเมื่อสมาชิกล็อกอินและยอมรับเงื่อนไขผ่านหน้าจอมาแล้ว
-  socket.on('user_connected', (data) => {
+         // 1. [แก้ไขแล้ว] รับสัญญาล็อกอิน: บันทึกข้อมูลสมาชิกลงฐานข้อมูล MongoDB ในเครื่อง PC จริงๆ
+  socket.on('user_connected', async (data) => {
     const username = data.username;
-    
-    // ผูกชื่อผู้ใช้งานเข้ากับรหัส Socket ID เครื่องนั้นๆ ในหน่วยความจำ PC
-    activeUsers[username] = socket.id;
-    console.log(`👤 ผู้ใช้ [ ${username} ] ติ๊กยอมรับเงื่อนไขและออนไลน์แล้ว`);
-    
-    // ยิงคำสั่งตอบกลับเพื่อแจ้งหน้าบ้านว่าบันทึกบนเซิร์ฟเวอร์ PC สำเร็จ
-    socket.emit('login_success', { userId: socket.id });
-  });
+    activeUsers[username] = socket.id; // ผูก Socket ID ปัจจุบันไว้ในหน่วยความจำ
+    console.log(`👤 ผู้ใช้ [ ${username} ] ออนไลน์และสแตนด์บายรับข้อความส่วนตัว`);
 
-  // 2. ระบบส่งข้อความแชทส่วนตัว (Private Message) แบบ 1 ต่อ 1
-  socket.on('send_private_message', (data) => {
-    const { sender, target, message } = data;
-    const targetSocketId = activeUsers[target]; // ค้นหาช่องทางติดต่อของคนรับปลายทาง
-
-    const chatPacket = {
-      sender: sender,
-      message: message
-    };
-
-    console.log(`💬 แชทส่วนตัว: [ ${sender} ] ส่งหา [ ${target} ] -> "${message}"`);
-
-    // ถ้าเพื่อนปลายทางกำลังออนไลน์บนเว็บอยู่ ให้ยิงข้อความส่วนตัวเข้าจอเขาโดยตรงทันที
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('receive_private_message', chatPacket);
+    try {
+        // ใช้คำสั่ง upsert: ถ้ายังไม่มีชื่อใน PC ให้สร้างใหม่ / ถ้ามีแล้วให้อัปเดตสถานะออนไลน์
+        await User.findOneAndUpdate(
+            { username: username }, 
+            { isOnline: true, acceptedTerms: true }, 
+            { upsert: true, new: true }
+        );
+        
+        socket.emit('login_success', { userId: socket.id });
+        
+        // ยิงรายชื่อคนที่ออนไลน์อยู่ทั้งหมดส่งไปอัปเดตบนหน้าจอทุกคน
+        io.emit('update_online_list', Object.keys(activeUsers));
+    } catch (err) {
+        console.error('❌ บันทึกสมาชิกสมาชิกลงฐานข้อมูลล้มเหลว:', err.message);
     }
   });
+
+  // 2. [แก้ไขแล้ว] ระบบส่งข้อความแชทส่วนตัวเจาะจงบุคคลและเซฟประวัติลงฐานข้อมูลใน PC
+  socket.on('send_private_message', async (data) => {
+    const { sender, target, message } = data;
+    const targetSocketId = activeUsers[target]; // ควานหารหัสเชื่อมต่อของคนรับปลายทาง
+    
+    const timeNow = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+
+    // เตรียมก้อนข้อมูลประวัติการสนทนาเพื่อบันทึกลง PC
+    const newChat = new Message({
+        sender: sender,
+        target: target,
+        message: message,
+        time: timeNow
+    });
+
+    try {
+        // 💾 บันทึกข้อความแชท 1 ต่อ 1 เก็บถาวรไว้ที่ฐานข้อมูลใน PC ของคุณ
+        await newChat.save();
+        console.log(`💾 บันทึกประวัติ: [ ${sender} ] -> [ ${target} ]: "${message}"`);
+
+        // 🎯 ส่งสัญญาณสด: ยิงข้อความเข้าหน้าจอเฉพาะคนที่เราเจาะจงทักคุย (คนอื่นอีก 2 คนจะไม่มีสิทธิ์เห็นข้อความนี้)
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('receive_private_message', {
+                sender: sender,
+                message: message,
+                time: timeNow
+            });
+        }
+    } catch (err) {
+        console.error('❌ ไม่สามารถบันทึกประวัติข้อความลงคอมได้:', err.message);
+    }
+  });
+
 
       // 3. จัดการระบบเมื่อสมาชิกปิดเบราว์เซอร์หรือตัดการเชื่อมต่อ
   socket.on('disconnect', () => {
