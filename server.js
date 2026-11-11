@@ -18,14 +18,14 @@ const io = require('socket.io')(http, {
   }
 });
 
-// ตารางจัดเก็บข้อมูลผู้ใช้ที่กำลังแชทออนไลน์อยู่บน PC ของคุณ
+// ตารางจัดเก็บข้อมูลผู้ใช้ที่กำลังเปิดเบราว์เซอร์แชทออนไลน์อยู่ ณ ปัจจุบัน
 let activeUsers = {}; 
 
-// เปิดสิทธิ์การเข้าถึงไฟล์หน้าบ้านในโฟลเดอร์ public
+// ปล่อยให้สิทธิ์การเปิดอ่านไฟล์หน้าบ้านในโฟลเดอร์ public ทำงานได้
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// 🌐 เปิดหน้าแรกของเว็บเมื่อมีการเข้าใช้งาน
+// 🌐 เปิดหน้าแรกของเว็บเมื่อมีคนกรอกลิงก์เข้ามา
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -35,126 +35,109 @@ app.post('/api/upload-album', upload.single('photo'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'กรุณาเลือกไฟล์รูปภาพก่อนค่ะ' });
         
-        const username = req.body.username;
-        const fileUrl = `/uploads/albums/${req.file.filename}`;
+        const username = req.body.username; // ดึงชื่อเจ้าของโปรไฟล์
+        const fileUrl = `/uploads/albums/${req.file.filename}`; // พาธรูปภาพที่เซฟในเครื่อง PC
 
+        // บันทึกที่อยู่รูปภาพลงคลังอาร์เรย์ albums ของผู้ใช้ในฐานข้อมูล MongoDB
         await User.findOneAndUpdate({ username: username }, { $push: { albums: fileUrl } });
+
         res.json({ success: true, url: fileUrl });
     } catch (err) {
         res.status(500).json({ error: 'ระบบเซิร์ฟเวอร์ PC อัปโหลดผิดพลาด: ' + err.message });
     }
 });
 
-// 🔌 ดักฟังเมื่อมีผู้ใช้งานเชื่อมต่อระบบเครือข่ายเข้ามา
+// 👥 ฟังก์ชันสำหรับดึงรายชื่อสมาชิกทุกคนจากฐานข้อมูลใน PC ส่งไปอัปเดตที่หน้าจอของทุกคน
+async function broadcastAllMembers() {
+    try {
+        const allUsers = await User.find({}, 'username isOnline').sort({ createdAt: -1 });
+        io.emit('sync_all_members', allUsers);
+    } catch (err) {
+        console.error('❌ ไม่สามารถดึงรายชื่อสมาชิกมาอัปเดตได้:', err.message);
+    }
+}
+
+// ดักฟังเมื่อมีผู้ใช้งานเชื่อมต่อระบบเครือข่ายเข้ามา (Network Connection)
 io.on('connection', (socket) => {
   console.log('🔌 มีอุปกรณ์เชื่อมต่อเข้ามา รหัส Socket ID: ' + socket.id);
 
-  // 📝 [เพิ่มใหม่] รับสัญญาสมัครสมาชิก: ตรวจสอบความซ้ำและบันทึกลงฐานข้อมูลในเครื่อง PC
-  socket.on('register_user', async (data) => {
-    const { username, password } = data;
-    try {
-        const existingUser = await User.findOne({ username: username });
-        if (existingUser) {
-            return socket.emit('register_result', { success: false, error: 'ชื่อผู้ใช้งานนี้ถูกใช้ไปแล้วค่ะ' });
-        }
+  // 3. [เพิ่มใหม่] ระบบสมัครสมาชิกและล็อกอิน: บันทึกข้อมูลสมาชิกลงฐานข้อมูล MongoDB ในเครื่อง PC จริงๆ
+  socket.on('register_and_login', async (data) => {
+    const username = data.username;
+    activeUsers[username] = socket.id; // ผูก Socket ID ปัจจุบันไว้ในหน่วยความจำ
+    console.log(`👤 ผู้ใช้ [ ${username} ] สมัครสมาชิก/เข้าสู่ระบบสำเร็จ`);
 
-        const newUser = new User({
-            username: username,
-            password: password, // บันทึกแบบข้อความตรงเพื่อความง่ายในการพัฒนาในเครื่อง
-            acceptedTerms: true
-        });
-        await newUser.save();
+    try {
+        // ใช้คำสั่ง upsert: ถ้ายังไม่มีชื่อใน PC ให้สร้างใหม่ (สมัครสมาชิก) / ถ้ามีแล้วให้อัปเดตสถานะออนไลน์
+        await User.findOneAndUpdate(
+            { username: username }, 
+            { isOnline: true, acceptedTerms: true }, 
+            { upsert: true, new: true }
+        );
         
-        console.log(`✨ [สมัครสมาชิก] บัญชีใหม่ [ ${username} ] บันทึกลง PC สำเร็จ`);
-        socket.emit('register_result', { success: true });
+        socket.emit('login_success', { username: username });
+        
+        // ส่งรายชื่อสมาชิกทุกคนในระบบ (ทั้งออนไลน์และออฟไลน์) ไปแสดงผลที่หน้าเว็บหลัก
+        await broadcastAllMembers();
     } catch (err) {
-        socket.emit('register_result', { success: false, error: 'ผิดพลาด: ' + err.message });
+        console.error('❌ บันทึกข้อมูลสมาชิกลงฐานข้อมูลล้มเหลว:', err.message);
     }
   });
 
-  // 🔐 [ปรับปรุงใหม่] รับสัญญาล็อกอิน: ตรวจสอบรหัสผ่านกับข้อมูลจริงบน MongoDB
-  socket.on('user_connected', async (data) => {
-    const { username, password } = data;
-    try {
-        const user = await User.findOne({ username: username });
-        
-        if (!user) {
-            return socket.emit('login_fail', { error: 'ไม่พบชื่อบัญชีนี้ กรุณาสมัครสมาชิกก่อนค่ะ' });
-        }
-        if (user.password !== password) {
-            return socket.emit('login_fail', { error: 'รหัสผ่านไม่ถูกต้อง กรุณากรอกใหม่อีกครั้งค่ะ' });
-        }
+  // 1. [แก้ไขทั้งหมด] ระบบส่งข้อความแชทกระจาย: ส่งหา 1 คน แต่คนอื่น (รวมเป็น 2-3 คน) ก็ได้รับด้วยแบบ Real-time
+  socket.on('send_multicast_message', async (data) => {
+    const { sender, targets, message } = data; // targets จะส่งมาเป็น Array รายชื่อ เช่น ['น้องส้ม', 'พี่โต']
 
-        activeUsers[username] = socket.id;
-        console.log(`👤 ผู้ใช้ [ ${username} ] ล็อกอินผ่านฐานข้อมูลในคอมสำเร็จ`);
-
-        user.isOnline = true;
-        await user.save();
-        
-        socket.emit('login_success', { userId: socket.id });
-        io.emit('update_online_list', Object.keys(activeUsers));
-    } catch (err) {
-        console.error('❌ ระบบฐานข้อมูลขัดข้อง:', err.message);
-        socket.emit('login_fail', { error: 'ระบบหลังบ้านขัดข้อง' });
-    }
-  });
-
-  // 💬 [ปรับปรุงใหม่ตามข้อ 1] ส่งแชทให้ 1 คน แต่อีก 2 คนที่เกี่ยวข้องได้ยินข้อความด้วย (แชทแบบกลุ่ม/รูม)
-  socket.on('send_private_message', async (data) => {
-    const { sender, target, message } = data;
-    const timeNow = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-
+    // เตรียมข้อมูลประวัติการสนทนาเพื่อบันทึกลง PC
     const newChat = new Message({
         sender: sender,
-        target: target,
+        targets: targets, // บันทึกรายชื่อผู้รับทุกคนที่ถูกเลือกไว้ในรอบนี้
         message: message
     });
 
     try {
+        // 🗄️ บันทึกข้อความแชทเก็บถาวรไว้ที่ฐานข้อมูลใน PC ของคุณ
         await newChat.save();
-        console.log(`💾 บันทึกประวัติลง PC: [ ${sender} ] -> [ ${target} ]: "${message}"`);
+        console.log(`💾 บันทึกประวัติ: [ ${sender} ] -> ส่งหา [ ${targets.join(', ')} ]: "${message}"`);
 
-        // 🎯 ยิงสัญญาณแบบ Broadcast แอบส่งให้คนที่เลือกตรง ๆ คุยกัน 1 ต่อ 1
-        const targetSocketId = activeUsers[target];
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('receive_private_message', { sender, message, time: timeNow });
-        }
-
-        // 🤫 [ฟังก์ชันแอบดักฟังตามโจทย์] หากในระบบมีคนชื่อ "แอบฟัง1" และ "แอบฟัง2" ออนอยู่ จะได้ข้อความนี้ไปด้วย
-        const spyList = ['แอบฟัง1', 'แอบฟัง2']; 
-        spyList.forEach(spyName => {
-            const spySocketId = activeUsers[spyName];
-            if (spySocketId && spyName !== sender && spyName !== target) {
-                io.to(spySocketId).emit('receive_private_message', {
-                    sender: `${sender} (แอบคุยกับ ${target})`,
-                    message: message,
-                    time: timeNow
+        // วนลูปส่งสัญญาณสดหาผู้รับทุกคนที่คุณเลือกไว้ในหน้าต่างแชทพร้อมกัน
+        targets.forEach(target => {
+            const targetSocketId = activeUsers[target];
+            if (targetSocketId) {
+                io.to(targetSocketId).emit('receive_multicast_message', {
+                    sender: sender,
+                    message: message
                 });
             }
         });
-
     } catch (err) {
-        console.error('❌ บันทึกประวัติข้อความล้มเหลว:', err.message);
+        console.error('❌ ไม่สามารถบันทึกประวัติข้อความลงคอมได้:', err.message);
     }
   });
 
-  // ❌ จัดการระบบเมื่อสมาชิกปิดเบราว์เซอร์หรือตัดการเชื่อมต่อ
+  // จัดการระบบเมื่อสมาชิกปิดเบราว์เซอร์หรือตัดการเชื่อมต่อ
   socket.on('disconnect', async () => {
     for (let username in activeUsers) {
       if (activeUsers[username] === socket.id) {
-        console.log(`❌ ผู้ใช้ [ ${username} ] ออฟไลน์ ออกจากระบบแล้ว`);
-        delete activeUsers[username];
+        console.log(`❌ ผู้ใช้ [ ${username} ] ตัดการเชื่อมต่อ ออกจากระบบแล้ว`);
+        delete activeUsers[username]; // ลบรายชื่อออกจากหน่วยความจำคอมพิวเตอร์
         
-        await User.findOneAndUpdate({ username: username }, { isOnline: false });
-        io.emit('update_online_list', Object.keys(activeUsers));
+        try {
+            // อัปเดตสถานะในฐานข้อมูลบน PC ให้เป็นออฟไลน์
+            await User.findOneAndUpdate({ username: username }, { isOnline: false });
+            // ส่งสัญญาณอัปเดตสถานะรายชื่อให้ทุกคนบนหน้าเว็บเห็น
+            await broadcastAllMembers();
+        } catch (err) {
+            console.error('❌ ไม่สามารถอัปเดตสถานะออฟไลน์ได้:', err.message);
+        }
         break;
       }
     }
   });
 });
 
-// รันระบบเซิร์ฟเวอร์บนเครื่อง PC ผ่าน Port 3000
+// รันระบบเซิร์ฟเวอร์ใน PC ของคุณผ่าน Port 3000 คอยสแตนด์บายเชื่อมต่อกับอินเทอร์เน็ตภายนอก
 const PORT = 3000;
 http.listen(PORT, () => {
-  console.log(`🚀 [PingGoChat SV] ทำงานสมบูรณ์แล้วบนพอร์ต -> Port: ${PORT}`);
+  console.log(`🚀 [PingGoChat SV v1.1.0] ทำงานสมบูรณ์แล้วบนพอร์ตแลนเครื่องคุณ -> Port: ${PORT}`);
 });
