@@ -10,7 +10,7 @@ const upload = require('./upload');
 // สั่งให้เชื่อมต่อไปยังโปรแกรม MongoDB ในเครื่อง PC ของคุณทันทีเมื่อเปิดระบบ
 connectDB();
 
-// 🟢 ตั้งค่าเชื่อมต่อระบบ Socket.io รองรับการส่งแชทสดจากภายนอกบ้าน
+// 🟢 ตั้งค่าเชื่อมต่อระบบ Socket.io รองรับการส่งแชทสด
 const io = require('socket.io')(http, {
   cors: {
     origin: "*", // อนุญาตให้ทุกอุปกรณ์เข้าถึงหน้าเว็บได้ฟรี
@@ -25,7 +25,7 @@ let activeUsers = {};
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// 🌐 เปิดหน้าแรกของเว็บเมื่อมีคนกรอกลิงก์เข้ามา
+// 🌐 เปิดหน้าแรกของเว็บเมื่อมีการเรียกเข้าหน้าแอป
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -50,7 +50,7 @@ app.post('/api/upload-album', upload.single('photo'), async (req, res) => {
 // 👥 ฟังก์ชันสำหรับดึงรายชื่อสมาชิกทุกคนจากฐานข้อมูลใน PC ส่งไปอัปเดตที่หน้าจอของทุกคน
 async function broadcastAllMembers() {
     try {
-        const allUsers = await User.find({}, 'username isOnline').sort({ createdAt: -1 });
+        const allUsers = await User.find({}, 'username isOnline avatar').sort({ createdAt: -1 });
         io.emit('sync_all_members', allUsers);
     } catch (err) {
         console.error('❌ ไม่สามารถดึงรายชื่อสมาชิกมาอัปเดตได้:', err.message);
@@ -61,7 +61,7 @@ async function broadcastAllMembers() {
 io.on('connection', (socket) => {
   console.log('🔌 มีอุปกรณ์เชื่อมต่อเข้ามา รหัส Socket ID: ' + socket.id);
 
-  // 3. [เพิ่มใหม่] ระบบสมัครสมาชิกและล็อกอิน: บันทึกข้อมูลสมาชิกลงฐานข้อมูล MongoDB ในเครื่อง PC จริงๆ
+  // 3. [ระบบสมัครสมาชิก/ล็อกอิน] บันทึกข้อมูลสมาชิกลงฐานข้อมูล MongoDB ในเครื่อง PC จริงๆ
   socket.on('register_and_login', async (data) => {
     const username = data.username;
     activeUsers[username] = socket.id; // ผูก Socket ID ปัจจุบันไว้ในหน่วยความจำ
@@ -75,16 +75,17 @@ io.on('connection', (socket) => {
             { upsert: true, new: true }
         );
         
+        // 🎯 ส่งสัญญาณแจ้งหน้าบ้านว่าล็อกอินสำเร็จ พร้อมส่งชื่อผู้ใช้กลับไป
         socket.emit('login_success', { username: username });
         
-        // ส่งรายชื่อสมาชิกทุกคนในระบบ (ทั้งออนไลน์และออฟไลน์) ไปแสดงผลที่หน้าเว็บหลัก
+        // ส่งรายชื่อสมาชิกทุกคนในระบบ (ทั้งออนไลน์และออฟไลน์) ไปแสดงผลที่หน้าเว็บหลักทันที
         await broadcastAllMembers();
     } catch (err) {
         console.error('❌ บันทึกข้อมูลสมาชิกลงฐานข้อมูลล้มเหลว:', err.message);
     }
   });
 
-  // 1. [แก้ไขทั้งหมด] ระบบส่งข้อความแชทกระจาย: ส่งหา 1 คน แต่คนอื่น (รวมเป็น 2-3 คน) ก็ได้รับด้วยแบบ Real-time
+  // 1. [ระบบส่งข้อความแชทกระจาย] ส่งหาคนที่เราเลือก และอัปเดตประวัติการคุยล่าสุด
   socket.on('send_multicast_message', async (data) => {
     const { sender, targets, message } = data; // targets จะส่งมาเป็น Array รายชื่อ เช่น ['น้องส้ม', 'พี่โต']
 
@@ -100,7 +101,7 @@ io.on('connection', (socket) => {
         await newChat.save();
         console.log(`💾 บันทึกประวัติ: [ ${sender} ] -> ส่งหา [ ${targets.join(', ')} ]: "${message}"`);
 
-        // วนลูปส่งสัญญาณสดหาผู้รับทุกคนที่คุณเลือกไว้ในหน้าต่างแชทพร้อมกัน
+        // วนลูปส่งสัญญาณสดหาผู้รับทุกคนที่คุณเลือกไว้ในหน้าต่างแชทพร้อมกัน แบบ Real-time
         targets.forEach(target => {
             const targetSocketId = activeUsers[target];
             if (targetSocketId) {
@@ -139,5 +140,5 @@ io.on('connection', (socket) => {
 // รันระบบเซิร์ฟเวอร์ใน PC ของคุณผ่าน Port 3000 คอยสแตนด์บายเชื่อมต่อกับอินเทอร์เน็ตภายนอก
 const PORT = 3000;
 http.listen(PORT, () => {
-  console.log(`🚀 [PingGoChat SV v1.1.0] ทำงานสมบูรณ์แล้วบนพอร์ตแลนเครื่องคุณ -> Port: ${PORT}`);
+  console.log(`🚀 [PingGoChat SV v1.2.0] ทำงานสมบูรณ์แล้วบนพอร์ตแลนเครื่องคุณ -> Port: ${PORT}`);
 });
