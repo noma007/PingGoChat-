@@ -7,9 +7,7 @@ const mongoURI = 'mongodb://127.0.0.1:27017/pinggo_db';
 // ฟังก์ชันสั่งเชื่อมต่อไปยังโปรแกรม MongoDB ในคอมพิวเตอร์
 const connectDB = async () => {
     try {
-                await mongoose.connect(mongoURI);
-
-        });
+        await mongoose.connect(mongoURI);
         console.log('🗄️ [PingGo DB] เชื่อมต่อระบบฐานข้อมูล MongoDB ใน PC สำเร็จแล้ว!');
     } catch (err) {
         console.error('❌ ไม่สามารถเชื่อมต่อ MongoDB ได้ กรุณาเปิดโปรแกรม MongoDB Community ในเครื่องก่อนครับ:', err.message);
@@ -46,3 +44,4 @@ module.exports = {
     User,
     Message
 };
+
