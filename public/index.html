@@ -115,7 +115,23 @@
     <!-- เริ่มต้นส่วนงานทำงานสคริปต์ควบคุมระบบเครือข่าย -->
     <script>
 
-        
+        // คำสั่งล้างการค้างและสั่งลบกล่องสมัครสมาชิก PingGo ทิ้งทันทีเมื่อเว็บเริ่มทำงาน
+document.addEventListener("DOMContentLoaded", () => {
+    const forceOverlay = document.getElementById('auth-overlay');
+    if (forceOverlay) {
+        // สั่งลบทิ้งออกจากระบบ HTML ของเบราว์เซอร์ไปเลย จะได้ไม่กลับมาเด้งบังหน้าจอหลักอีก
+        forceOverlay.remove(); 
+        console.log("🧼 [PingGo Engine] ทำการถอนรากถอนโคนหน้ากากขาวเรียบร้อยแล้ว");
+    }
+    
+    // บังคับเปิดสิทธิ์ให้มองเห็นบอร์ดหลักด้านหลังทันที
+    const mainAppContainer = document.getElementById('main-app');
+    if (mainAppContainer) {
+        mainAppContainer.classList.remove('hidden');
+        mainAppContainer.style.display = 'flex'; // หรือสไตล์ Layout เดิมของคุณ
+    }
+});
+
         const socket = io();
         let currentUsername = "";
         let selectedTargets = []; // อาร์เรย์เก็บกลุ่มรายชื่อผู้รับตาม ข้อ 1
@@ -261,13 +277,21 @@
         msgInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
         closePopupBtn.addEventListener('click', () => { chatPopup.classList.add('hidden'); });
 
-        // ดักรับข้อความแชทสดจากเพื่อนแบบ Real-time เข้ามาโชว์ในกล่องป๊อปอัพ
+        
+        
+        // 🎯 [แก้ไขแทนที่พาร์ทดักรับแชทสด] ล็อกระบบให้เป็นแชทส่วนตัว 1 ต่อ 1 (คนอื่นไม่มีสิทธิ์เห็น)
         socket.on('receive_multicast_message', (data) => {
-            // ถ้าระบบส่งกระจายมา และหน้าต่างแชทเปิดตรงกับชื่อคนส่ง ให้แสดงผลฟองแชทฝั่งซ้ายทันที
-            if (activeChatUser === data.sender || data.targets.includes(currentUsername)) {
+            console.log("🔒 [Private Chat Received] มีข้อความส่วนตัวส่งมาถึงคุณ:", data);
+
+            // 💡 [จุดแก้ไขสำคัญ] ลบเงื่อนไขอาเรย์กลุ่มเดิมออก และเช็คเฉพาะคู่สนทนาตัวต่อตัวเด็ดขาด
+            // ข้อความจะถูกเปิดแสดงบนหน้าจอของคุณก็ต่อเมื่อ "คนที่เปิดกล่องคุยอยู่" ตรงกับ "คนส่งข้อความมาจริง ๆ" เท่านั้น
+            if (activeChatUser === data.sender) {
                 appendMessage(data.sender, data.message, false);
+            } else {
+                console.log(`🤫 มีข้อความลับจากคุณ ${data.sender} ส่งมาถึงคุณ แต่หน้าจอของคุณยังไม่ได้กดเปิดห้องแชทของเขา จึงยังไม่แสดงฟองแชทขึ้นมาซ้อนกัน`);
             }
         });
+
 
         // ฟังก์ชันวาดฟองสบู่แชท (Chat Bubbles) เข้าหน้าต่างป๊อปอัพสีชมพู
         function appendMessage(sender, message, isMe) {
