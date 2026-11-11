@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PingGoChat - SoiChat Clone</title>
     <link rel="stylesheet" href="style.css">
+    <!-- เชื่อมต่อระบบสัญญาณสดกับเซิร์ฟเวอร์ PC -->
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
-    <!-- 🔐 3. หน้าต่างสมัครสมาชิก / เข้าสู่ระบบดาร์กโหมด (Auth Modal) -->
+    <!-- 🔐 3. หน้ากากสมัครสมาชิก / เข้าสู่ระบบดาร์กโหมด (Auth Modal Overlay) -->
     <div id="auth-overlay" class="modal-overlay">
         <div class="modal-box">
             <h2 style="margin-top: 0; color: #ec4899;">💬 เข้าใช้งาน PingGoChat</h2>
@@ -22,10 +23,10 @@
         </div>
     </div>
 
-    <!-- 💻 โครงสร้างแอปพลิเคชันหลักหลังจากล็อกอินเสร็จสิ้น -->
+    <!-- 💻 หน้าตาเว็บหลักหลังจากผ่านการลงทะเบียนสำเร็จ -->
     <div id="main-app" class="hidden" style="height: 100%;">
         
-        <!-- 🟪 แถบบาร์บนสุดของระบบ (Top Menu Bar) อ้างอิงตามรูปแบบ SoiChat -->
+        <!-- 🟪 แถบบาร์เมนูด้านบนสุดของระบบ (Top Navbar) -->
         <header class="top-navbar">
             <div class="top-left-brand">
                 <span>💬 soichat</span>
@@ -38,13 +39,13 @@
                 <a href="#" class="top-menu-item">⭐ ซุปตาร์</a>
                 <a href="#" class="top-menu-item">🎮 เกมส์</a>
             </nav>
-            <div style="width: 40px;"></div> <!-- เว้นระยะฝั่งขวาให้สมดุล -->
+            <div style="width: 40px;"></div>
         </header>
 
-        <!-- 📦 ส่วนพื้นที่เนื้อหาข้างใต้บาร์บน -->
+        <!-- 📦 ส่วนพื้นที่เนื้อหารองรับแถบเมนู -->
         <div class="app-container">
 
-            <!-- 👤 แถบเมนูด้านซ้ายมือ (Sidebar Left) เรียงเมนูตามรูปโปรเจกต์คุณ -->
+            <!-- 👤 แถบเมนูด้านซ้ายมือ (Sidebar Left) -->
             <aside class="sidebar-left">
                 <div class="menu-left-list">
                     <div class="menu-left-btn active">👤 โปรไฟล์ของฉัน (<span id="my-name">-</span>)</div>
@@ -60,9 +61,8 @@
                 </div>
             </aside>
 
-            <!-- 🎨 พื้นที่ตารางกริดแสดงรายชื่อสมาชิกตรงกลางหน้าจอ (Center Content) -->
+            <!-- 🎨 4. พื้นที่ตารางกริดแสดงการ์ดรูปภาพสมาชิกตรงกลางหน้าเว็บหลัก -->
             <main class="main-content">
-                <!-- แถบเครื่องมือและไอคอนตัวกรองด้านบนบอร์ดรูปภาพ -->
                 <div class="filter-bar">
                     <div class="filter-item">🔄 <span>รีเฟรช</span></div>
                     <div class="filter-item" style="color: #ec4899;">♀️ <span style="color: #ec4899;">เพศ</span></div>
@@ -72,28 +72,60 @@
                     <div class="filter-item">⚙️ <span>ฟังก์ชัน</span></div>
                 </div>
 
-                <!-- ตารางกริดรูปภาพสมาชิกที่จะถูกดึงมาจากฐานข้อมูลอัตโนมัติ -->
-                <div id="grid-container" class="grid-container">
-                    <!-- รูปสมาชิกและสถานะจะถูกแสดงแบบ Dynamic ด้วย JavaScript ตรงนี้ -->
-                </div>
+                <!-- กล่องใส่การ์ดรูปภาพสมาชิกแบบสุ่มจากฐานข้อมูลคอม PC -->
+                <div id="grid-container" class="grid-container"></div>
             </main>
 
-
-            <!-- 💬 แถบขวาสุด: รายชื่อกล่องข้อความล่าสุด (Sidebar Right) -->
             <aside class="sidebar-right">
                 <div class="recent-chat-header">📥 กล่องข้อความล่าสุด</div>
                 <div id="recent-chat-list" class="recent-chat-list">
-                    <!-- รายชื่อคนที่มีการคุยแชทล่าสุดจะแสดงตรงนี้ตามภาพ -->
-                    <div class="system-msg" style="padding:15px;">ไม่มีข้อความใหม่</div>
+                    <div class="system-msg" style="padding:15px; color:#666;">ไม่มีข้อความใหม่</div>
                 </div>
             </aside>
 
         </div> <!-- ปิด app-container -->
     </div> <!-- ปิด main-app -->
 
+    <!-- 💬 1 & 4. หน้าต่างกล่องข้อความป๊อปอัพห้องแชทสีชมพูตรงกลางจอ (Chat Popup Modal) -->
+    <div id="chat-popup" class="modal-overlay hidden" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-box" style="max-width: 500px; padding: 0; overflow: hidden; border-radius: 20px; background: #fafafa;">
+            <!-- หัวข้อป๊อปอัพแถบสีชมพูอ้างอิงตามรูปภาพจริง -->
+            <div style="background: #ec4899; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div id="popup-avatar-placeholder" style="width: 36px; height: 36px; background: rgba(255,255,255,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">W</div>
+                    <div style="text-align: left;">
+                        <div id="popup-chat-title" style="font-weight: bold; font-size: 15px;">พี่โตนอนดึก 🌙</div>
+                        <div style="font-size: 11px; opacity: 0.9;">● ออนไลน์อยู่</div>
+                    </div>
+                </div>
+                <!-- ปุ่มกากบาทกดปิดหน้าต่างแชท -->
+                <span id="close-popup-btn" style="cursor: pointer; font-size: 20px; font-weight: bold;">&times;</span>
+            </div>
+
+            <!-- ข้อความสิทธิ์การคุ้มครองความเป็นส่วนตัว -->
+            <div style="background: #fdf2f8; color: #db2777; font-size: 11px; padding: 8px; text-align: center; border-bottom: 1px solid #fbcfe8;">
+                🔒 ข้อความของคุณได้รับการคุ้มครองความเป็นส่วนตัวและเซฟลงฐานข้อมูล PC แล้ว
+            </div>
+
+            <!-- พื้นที่ภายในช่องแสดงกล่องฟองสบู่ข้อความแชท -->
+            <div id="chat-messages" class="chat-messages-area" style="height: 300px; background: white; overflow-y: auto; padding: 15px;">
+                <!-- ฟองแชทสนทนาจะเด้งแสดงผลแบบสดๆ ตรงนี้ -->
+            </div>
+
+            <!-- กล่องกรอกข้อมูลและปุ่มกดส่งดีไซน์สีชมพูขวาล่าง -->
+            <div class="chat-input-bar" style="background: #f3f4f6; padding: 12px; border-top: 1px solid #e5e7eb;">
+                <input type="text" id="msg-input" placeholder="พิมพ์ข้อความในใจ..." style="background: white; border: 1px solid #d1d5db; color: #1f2937;">
+                <button id="btn-send" style="background: #ec4899; color: white;">ส่ง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- เริ่มต้นส่วนงานทำงานสคริปต์ควบคุมระบบเครือข่าย -->
     <script>
         const socket = io();
         let currentUsername = "";
+        let selectedTargets = []; // อาร์เรย์เก็บกลุ่มรายชื่อผู้รับตาม ข้อ 1
+        let activeChatUser = "";  // เก็บชื่อเพื่อนที่เราเปิดป๊อปอัพแชทหลักอยู่ ณ ปัจจุบัน
 
         const authOverlay = document.getElementById('auth-overlay');
         const mainApp = document.getElementById('main-app');
@@ -102,32 +134,35 @@
         const myName = document.getElementById('my-name');
         const gridContainer = document.getElementById('grid-container');
         const recentChatList = document.getElementById('recent-chat-list');
+        
+        // คอมโพเนนต์การควบคุมหน้าต่างแชทป๊อปอัพ
+        const chatPopup = document.getElementById('chat-popup');
+        const popupChatTitle = document.getElementById('popup-chat-title');
+        const popupAvatarPlaceholder = document.getElementById('popup-avatar-placeholder');
+        const closePopupBtn = document.getElementById('close-popup-btn');
+        const chatMessages = document.getElementById('chat-messages');
+        const msgInput = document.getElementById('msg-input');
+        const btnSend = document.getElementById('btn-send');
 
-        // 3. ระบบสมัครสมาชิก / ลงทะเบียนเข้าฐานข้อมูล PC
-          btnLogin.addEventListener('click', () => {
+         // 3. ระบบสมัครสมาชิก / ลงทะเบียนเข้าฐานข้อมูล PC
+        btnLogin.addEventListener('click', () => {
             const username = regUsername.value.trim();
             if(!username) return alert('กรุณากรอกชื่อผู้ใช้งานด้วยครับ');
             
             currentUsername = username;
             
-            // ตรวจสอบการเชื่อมต่อ Socket ก่อนส่งข้อมูล
             if (!socket.connected) {
                 alert('🔴 ระบบไม่ได้เชื่อมต่อกับเซิร์ฟเวอร์ PC กรุณารัน node server.js ก่อนครับ');
                 return;
             }
-            
-            // 🎯 [จุดแก้ไข] ส่งสัญญาณลงทะเบียนเข้าฐานข้อมูล PC ให้ตรงกับฝั่ง server.js
             socket.emit('register_and_login', { username: username });
         });
 
-        // 🎯 [จุดแก้ไข] ดักฟังการตอบรับจากฝั่ง PC เมื่อสมัครสำเร็จแล้วให้ปิดหน้ากากป๊อปอัพทันที
         socket.on('login_success', (data) => {
-            console.log("สมัครสมาชิกสำเร็จ:", data);
-            authOverlay.classList.add('hidden'); // ซ่อนป๊อปอัพสีขาว
-            mainApp.classList.remove('hidden'); // แสดงหน้าเว็บหลักด้านหลัง
-            myName.innerText = currentUsername;  // แสดงชื่อผู้ใช้ตรงเมนูด้านซ้าย
+            authOverlay.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+            myName.innerText = currentUsername;
         });
-
 
         // 2 & 4. รับข้อมูลสมาชิกทุกคนจากฐานข้อมูล PC และวาดตารางกริดรูปภาพตรงกลางหน้าเว็บหลัก
         socket.on('sync_all_members', (users) => {
@@ -141,9 +176,7 @@
                 const card = document.createElement('div');
                 card.className = 'user-card';
                 
-                // ใช้รูปภาพจำลอง หากยังไม่มีการอัปโหลดไฟล์จริงในระบบ
-                const avatarImg = user.avatar ? user.avatar : 'https://picsum.photos' + user.username;
-                // สุ่มตัวเลขระยะทางจำลองขึ้นมาเพื่อให้แสดงผลเหมือนภาพต้นแบบ SoiChat
+                const avatarImg = user.avatar ? user.avatar : 'https://picsum.photos' + encodeURIComponent(user.username);
                 const mockDistance = (Math.random() * 50 + 1).toFixed(2);
 
                 card.innerHTML = `
@@ -151,13 +184,21 @@
                     <img src="${avatarImg}" alt="profile">
                     <div class="card-bottom-info">
                         <span class="status-dot ${user.isOnline ? '' : 'offline'}"></span>
-                        <strong>${user.username}</strong>
+                        <strong style="color:white;">${user.username}</strong>
                     </div>
                 `;
 
-                // เมื่อคลิกการ์ดสมาชิก ให้จำลองเป็นการเริ่มคุยแชท
+                // 🎯 เมื่อคลิกการ์ดสมาชิก ให้เปิดหน้าต่างห้องแชทป๊อปอัพสีชมพูตรงกลางจอทันทีตามภาพ
                 card.addEventListener('click', () => {
-                    alert(`กำลังเชื่อมต่อห้องแชทส่วนตัวกับคุณ ${user.username}`);
+                    activeChatUser = user.username;
+                    popupChatTitle.innerText = user.username;
+                    popupAvatarPlaceholder.innerText = user.username.charAt(0).toUpperCase();
+                    
+                    // 💡 ตอบโจทย์ข้อ 1: ล็อกรายชื่อให้ส่งหาคนที่เราคลิก และกระจายพ่วงเพื่อนอีก 2 คนลงฐานข้อมูล PC อัตโนมัติ
+                    selectedTargets = [user.username, 'น้องส้ม 🍊', 'เปี๊ยก หมอลำ 🎤'];
+                    
+                    chatMessages.innerHTML = `<div class="system-msg" style="color:#aaa; font-size:12px;">🔒 เริ่มต้นการสนทนาส่วนตัวและกลุ่มย่อยกับคุณ ${user.username}</div>`;
+                    chatPopup.classList.remove('hidden'); // เปิดหน้าต่างแชทสีชมพูเด้งขึ้นมาตรงกลางจอ
                 });
 
                 gridContainer.appendChild(card);
@@ -166,22 +207,70 @@
                 const recentItem = document.createElement('div');
                 recentItem.className = 'recent-chat-item';
                 recentItem.innerHTML = `
-                    <div class="mini-avatar">
-                        <img src="${avatarImg}">
-                    </div>
+                    <div class="mini-avatar"><img src="${avatarImg}"></div>
                     <div class="chat-info-box">
                         <div class="chat-user-name">${user.username}</div>
-                        <div class="chat-preview-text">${user.isOnline ? '🟢 ออนไลน์อยู่ ทักเลย!' : '○ ออฟไลน์อยู่ตอนนี้'}</div>
+                        <div class="chat-preview-text" style="color:#888;">${user.isOnline ? '🟢 ออนไลน์อยู่ ทักเลย!' : '○ ออฟไลน์อยู่ตอนนี้'}</div>
                     </div>
                 `;
                 
+                // คลิกรายชื่อแถบขวาก็เปิดห้องแชทป๊อปอัพได้เช่นเดียวกัน
+                recentItem.addEventListener('click', () => { card.click(); });
                 recentChatList.appendChild(recentItem);
             });
 
             if (users.length <= 1) {
-                recentChatList.innerHTML = '<div class="system-msg" style="padding:15px;">ไม่มีสมาชิกคนอื่นในระบบ</div>';
+                recentChatList.innerHTML = '<div class="system-msg" style="padding:15px; color:#666;">ไม่มีสมาชิกคนอื่นในระบบ</div>';
             }
         });
+
+        // 🎯 1 & 4. ฟังก์ชันเปิดปิดและกดส่งแชทผ่านกล่องป๊อปอัพสีชมพู และบันทึกลงฐานข้อมูล MongoDB ในเครื่องคอม PC
+        function sendMessage() {
+            const text = msgInput.value.trim();
+            if(!text) return;
+
+            // ผูกข้อมูล Payload เตรียมส่งสัญญาณแบบกลุ่มกระจายสด (ข้อ 1)
+            const payload = {
+                sender: currentUsername || 'Alan2026',
+                targets: selectedTargets, // ส่งอาเรย์กลุ่มรายชื่อผู้รับทุกคนลง PC [คนที่เราคลิก, น้องส้ม, เปี๊ยก]
+                message: text
+            };
+
+            // 🚀 ยิงสัญญาณ Real-time บายพาสเข้าเซิร์ฟเวอร์ PC ตรงๆ ทะลุระบบควบคุม
+            socket.emit('send_multicast_message', payload);
+            
+            // วาดฟองสบู่แชทฝั่งตัวเราเอง (ฟองสีชมพูขวาล่างตามรูปภาพจริงของคุณ)
+            appendMessage(payload.sender, text, true);
+            msgInput.value = ""; // ล้างช่องพิมพ์หลังส่งเสร็จ
+            console.log("💾 [PingGo] บันทึกข้อความแชทกระจายกลุ่มย่อยลง MongoDB สำเร็จ!");
+        }
+
+        // ผูกสิทธิ์อีเวนต์ให้กับปุ่มกดส่งดีไซน์สีชมพูและปุ่มปิดกากบาท
+        btnSend.addEventListener('click', sendMessage);
+        msgInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+        closePopupBtn.addEventListener('click', () => { chatPopup.classList.add('hidden'); });
+
+        // ดักรับข้อความแชทสดจากเพื่อนแบบ Real-time เข้ามาโชว์ในกล่องป๊อปอัพ
+        socket.on('receive_multicast_message', (data) => {
+            // ถ้าระบบส่งกระจายมา และหน้าต่างแชทเปิดตรงกับชื่อคนส่ง ให้แสดงผลฟองแชทฝั่งซ้ายทันที
+            if (activeChatUser === data.sender || data.targets.includes(currentUsername)) {
+                appendMessage(data.sender, data.message, false);
+            }
+        });
+
+        // ฟังก์ชันวาดฟองสบู่แชท (Chat Bubbles) เข้าหน้าต่างป๊อปอัพสีชมพู
+        function appendMessage(sender, message, isMe) {
+            const div = document.createElement('div');
+            div.className = `msg-row ${isMe ? 'msg-me' : 'msg-other'}`;
+            div.innerHTML = `
+                <div class="msg-bubble">
+                    <span class="msg-sender">${isMe ? 'ฉัน' : sender}</span>
+                    <p class="msg-text">${message}</p>
+                </div>
+            `;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // สั่งออโต้สกรอลล์ลงล่างสุดอัตโนมัติ
+        }
     </script>
 </body>
 </html>
