@@ -53,7 +53,7 @@ app.post('/api/upload-album', upload.single('photo'), async (req, res) => {
 io.on('connection', (socket) => {
   console.log('🔌 มีอุปกรณ์เชื่อมต่อเข้ามา รหัส Socket ID: ' + socket.id);
 
-         // 1. [แก้ไขแล้ว] รับสัญญาล็อกอิน: บันทึกข้อมูลสมาชิกลงฐานข้อมูล MongoDB ในเครื่อง PC จริงๆ
+        // 1. [แก้ไขแล้ว] รับสัญญาล็อกอิน: บันทึกข้อมูลสมาชิกลงฐานข้อมูล MongoDB ในเครื่อง PC จริงๆ
   socket.on('user_connected', async (data) => {
     const username = data.username;
     activeUsers[username] = socket.id; // ผูก Socket ID ปัจจุบันไว้ในหน่วยความจำ
@@ -110,6 +110,7 @@ io.on('connection', (socket) => {
   });
 
 
+
       // 3. จัดการระบบเมื่อสมาชิกปิดเบราว์เซอร์หรือตัดการเชื่อมต่อ
   socket.on('disconnect', () => {
     for (let username in activeUsers) {
@@ -128,3 +129,4 @@ http.listen(PORT, () => {
   console.log(`🚀 [PingGoChat SV] ทำงานสมบูรณ์แล้วบนพอร์ตแลนเครื่องคุณ -> Port: ${PORT}`);
   console.log(`🔗 เปิดเราเตอร์ Port Forwarding ไปยังพอร์ตนี้เพื่อเชื่อมระบบเข้ากับ pinggochat.duckdns.org`);
 });
+
