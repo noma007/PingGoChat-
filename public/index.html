@@ -3,291 +3,389 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PingGoChat - แอปพลิเคชันแชทส่วนตัว</title>
-    <!-- ดึงสคริปต์สไตล์ตกแต่งหน้าบ้าน -->
+    <title>PingGoChat - ระบบสมัครสมาชิกและแชทสดกลางจอ</title>
+    <!-- เรียกใช้งานคลังดีไซน์มาตรฐานและการสื่อสาร Socket.io -->
     <script src="https://tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="bg-gray-100 font-sans h-screen overflow-hidden flex relative">
 
-    <!-- ==================== 1. หน้าต่างล็อกอิน / ยอมรับข้อตกลงความปลอดภัย ==================== -->
+    <!-- ==================== 📦 [ข้อ 3] หน้าต่างฟอร์ม สมัครสมาชิก / เข้าสู่ระบบ (Auth Modal) ==================== -->
     <div id="loginModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-gray-100 text-center">
+            
             <div class="text-4xl font-bold text-pink-500 mb-2 flex justify-center items-center gap-2">
                 <span>💬</span> PingGo
             </div>
-            <p class="text-gray-500 text-sm mb-6">หาเพื่อนคุย หาแฟน ตลอด 24 ชั่วโมง</p>
+            <p id="authTitle" class="text-gray-500 text-sm mb-6">เข้าสู่ระบบเพื่อพบเพื่อนคุย ตลอด 24 ชั่วโมง</p>
 
+            <!-- ช่องกรอกชื่อผู้ใช้งาน -->
             <div class="mb-4 text-left">
                 <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">ชื่อผู้ใช้งาน (Username)</label>
-                <input type="text" id="usernameInput" placeholder="กรอกชื่อเล่นของคุณ..." 
+                <input type="text" id="usernameInput" placeholder="กรอกชื่อเล่นหรือไอดีของคุณ..." 
                     class="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-pink-500 transition">
             </div>
 
-            <div class="bg-gray-50 p-3 rounded-xl mb-6 border border-gray-100 text-left">
+            <!-- ช่องกรอกรหัสผ่าน -->
+            <div class="mb-4 text-left">
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">รหัสผ่าน (Password)</label>
+                <input type="password" id="passwordInput" placeholder="กรอกรหัสผ่านเพื่อความปลอดภัย..." 
+                    class="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-pink-500 transition">
+            </div>
+
+            <!-- ข้อตกลงเงื่อนไขความปลอดภัย (ซ่อนไว้ก่อน จะแสดงผลออโต้เมื่อกดสลับโหมดสมัครสมาชิก) -->
+            <div id="termsContainer" class="bg-gray-50 p-3 rounded-xl mb-6 border border-gray-100 text-left hidden">
                 <label class="flex items-start gap-2.5 cursor-pointer select-none">
                     <input type="checkbox" id="termsCheckbox" class="mt-1 accent-pink-500 rounded w-4 h-4">
                     <span class="text-xs text-gray-500 leading-relaxed">
-                        ฉันยอมรับ **ข้อกำหนดและเงื่อนไขการใช้งาน** นโยบายความเป็นส่วนตัว ของระบบแชท PingGoChat และยินยอมให้จัดเก็บข้อมูลโปรไฟล์ลง PC
+                        ฉันยอมรับ **ข้อกำหนดการใช้งาน** และนโยบายความเป็นส่วนตัว ยินยอมให้ฐานข้อมูล PC จัดเก็บรหัสผ่านนี้คุมสิทธิ์
                     </span>
                 </label>
             </div>
 
-            <button onclick="handleLogin()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all">
-                เข้าเล่นฟรี 🚀
+            <!-- ปุ่มกดตกลงส่งข้อมูล -->
+            <button id="authButton" onclick="handleSubmitAuth()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all">
+                เข้าสู่ระบบแชท 🚀
             </button>
+
+            <!-- ปุ่มกดย้ายสลับหน้าลงทะเบียนสมัครสมาชิกฟรี -->
+            <div class="mt-5 text-sm text-gray-500">
+                <span id="authSwitchText">ยังไม่มีบัญชีผู้ใช้งานใช่ไหม?</span>
+                <button onclick="toggleAuthMode()" id="authSwitchButton" class="text-pink-500 font-bold ml-1 hover:underline">สมัครสมาชิกฟรี</button>
+            </div>
         </div>
     </div>
 
-    <!-- ==================== 2. หน้าต่างกล่องแชทส่วนตัวเจาะจงบุคคล (Private Chat Modal) ==================== -->
+    <!-- ==================== 🔒 [ข้อ 1] หน้าต่างกล่องแชทส่วนตัวแยกบุคคล (Private Chat Modal) ==================== -->
     <div id="privateChatModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md h-[550px] flex flex-col overflow-hidden border border-gray-100">
             
-            <!-- หัวข้อหน้าแชทส่วนตัว -->
             <div class="bg-pink-500 p-4 text-white flex justify-between items-center shadow-md">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold text-lg" id="chatTargetAvatar">?</div>
                     <div>
                         <p class="font-bold" id="chatTargetName">ชื่อคนคุย</p>
-                        <p class="text-xs opacity-80 flex items-center gap-1"><span class="w-2 h-2 bg-green-300 rounded-full"></span> กำลังออนไลน์</p>
+                        <p class="text-xs opacity-80 flex items-center gap-1"><span class="w-2 h-2 bg-green-300 rounded-full"></span> ดึงสัญญาณสดเฉพาะคู่สาย</p>
                     </div>
                 </div>
                 <button onclick="closePrivateChat()" class="text-white/80 hover:text-white text-2xl font-bold px-2">&times;</button>
             </div>
 
-            <!-- พื้นที่แสดงข้อความสนทนาสดแยกตามห้องคุย -->
             <div id="chatMessageArea" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-                <div class="text-center text-xs text-gray-400 my-2">🔒 ข้อความของคุณและคู่สนทนาได้รับการจัดเก็บอย่างปลอดภัยบนเซิร์ฟเวอร์ PC</div>
+                <div class="text-center text-xs text-gray-400 my-2">🔒 ข้อความของคุณแชทแยกบุคคลนี้ ได้รับการจัดเก็บอย่างปลอดภัยบนเซิร์ฟเวอร์ PC</div>
             </div>
 
-            <!-- แถบป้อนข้อความส่งแชทส่วนตัว -->
             <div class="p-3 bg-white border-t border-gray-100 flex gap-2">
                 <input type="text" id="chatInput" placeholder="พิมพ์ข้อความส่วนตัว..." 
                     class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-pink-500"
                     onkeypress="if(event.key === 'Enter') sendPrivateMessage()">
-                <button onclick="sendPrivateMessage()" class="bg-pink-500 hover:bg-pink-600 text-white font-bold px-5 py-2 rounded-xl text-sm transition">
-                    ส่ง
-                </button>
+                <button onclick="sendPrivateMessage()" class="bg-pink-500 hover:bg-pink-600 text-white font-bold px-5 py-2 rounded-xl text-sm transition">ส่ง</button>
             </div>
         </div>
     </div>
 
-
-    <!-- ==================== 3. หน้าโครงสร้างหลัก 3 คอลัมน์ด้านหลัง ==================== -->
-    
-    <!-- คอลัมน์ที่ 1: แถบเมนูซ้าย -->
+        <!-- คอลัมน์ที่ 1: แถบเมนูฝั่งซ้ายสุด -->
     <aside class="w-64 bg-white border-r border-gray-200 flex flex-col justify-between h-full p-4 flex-shrink-0">
         <div>
             <div class="text-2xl font-bold text-pink-500 mb-8 flex items-center gap-2"><span>💬</span> PingGoChat</div>
             <div class="bg-gray-50 p-3 rounded-xl mb-4 border border-gray-100 flex items-center gap-3">
-
                 <div class="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center text-white text-sm font-bold" id="userAvatar">?</div>
                 <div class="min-w-0">
-                    <p class="text-xs text-gray-400">บัญชีของคุณ</p>
+                    <p class="text-xs text-gray-400">บัญชีผู้ใช้ปัจจุบัน</p>
                     <p class="text-sm font-bold text-gray-800 truncate" id="currentUsername">ยังไม่ได้ล็อกอิน</p>
                 </div>
             </div>
             <nav class="space-y-2">
                 <a href="#" class="flex items-center gap-3 p-3 bg-pink-50 text-pink-600 rounded-xl font-medium">👤 หน้าแชทหลัก</a>
-                <a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 rounded-xl">🎁 ของขวัญ</a>
+                <a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 rounded-xl">🎁 ของขวัญระบบ</a>
                 <a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 rounded-xl">🪙 ร้านค้าเหรียญ</a>
             </nav>
         </div>
-        <div class="text-xs text-gray-400 border-t pt-4 text-center">PingGo v1.1.0 (PC Server)</div>
+        <div class="text-xs text-gray-400 border-t pt-4 text-center">PingGo v1.3.0 (PC Server)</div>
     </aside>
 
-    <!-- คอลัมน์ที่ 2: ตารางสมาชิกออนไลน์ตรงกลาง (ดึงข้อมูลสดจากฐานข้อมูล PC) -->
-    <main class="flex-1 flex flex-col h-full bg-gray-50">
-        <header class="bg-white p-4 border-b border-gray-200">
-            <h1 class="text-lg font-bold text-gray-800">สมาชิกออนไลน์ในฐานข้อมูล PC</h1>
+    <!-- คอลัมน์ที่ 2: [ข้อ 4] พื้นที่กล่องหน้าจอและช่องพิมพ์ส่งแชทกลางหน้าเว็บหลัก (Public Chat Area) -->
+    <main class="flex-1 flex flex-col h-full bg-gray-50 border-r border-gray-200">
+        <header class="bg-white p-4 border-b border-gray-200 flex justify-between items-center shadow-xs">
+            <div>
+                <h1 class="text-lg font-bold text-gray-800">📢 ห้องคุยรวมหน้าหลัก</h1>
+                <p class="text-xs text-gray-400">ข้อความในหน้านี้สมาชิกทุกคนสามารถอ่านและร่วมคุยกันได้สดๆ</p>
+            </div>
         </header>
-        <!-- กล่องนี้จะถูกล้างและแทนที่ด้วยรายชื่อคนออนไลน์จริงที่ทักเข้ามาใน MongoDB อัตโนมัติ -->
-        <section id="onlineUsersGrid" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <div class="col-span-full text-center text-gray-400 py-8">⏳ รอการเชื่อมต่อรายชื่อผู้ใช้จากฐานข้อมูล...</div>
-        </section>
+
+        <!-- พื้นที่กางแสดงกล่องประวัติข้อความแชทกลางจอหลัก -->
+        <div id="publicChatMessageArea" class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div class="text-center text-xs text-gray-400 my-2">👋 ยินดีต้อนรับสู่ห้องแชทกลาง PingGoChat พิมพ์ทักทายกันได้ที่ด้านล่างนี้เลยค่ะ</div>
+        </div>
+
+        <!-- แถบล่างสำหรับพิมพ์ป้อนส่งข้อความแชทกลางจอหลัก -->
+        <div class="p-3 bg-white border-t border-gray-100 flex gap-2 shadow-md">
+            <input type="text" id="publicChatInput" placeholder="พิมพ์ข้อความคุยรวมหน้าหลักที่นี่..." 
+                class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-pink-500"
+                onkeypress="if(event.key === 'Enter') sendPublicMessage()">
+            <button onclick="sendPublicMessage()" class="bg-pink-500 hover:bg-pink-600 text-white font-bold px-6 py-2 rounded-xl text-sm transition">
+                ส่งคุยรวม 📢
+            </button>
+        </div>
     </main>
 
-    <!-- คอลัมน์ที่ 3: รายการกล่องข้อความล่าสุดขวาสุด -->
-    <aside class="w-80 bg-white border-l border-gray-200 flex flex-col h-full flex-shrink-0">
-        <div class="p-4 border-b border-gray-200"><h2 class="font-bold text-gray-800">กล่องข้อความล่าสุด</h2></div>
+    <!-- คอลัมน์ที่ 3: แผงตารางรายชื่อสมาชิกออนไลน์จริงจาก MongoDB (ซ้าย) และ แถบแชทส่วนตัวล่าสุด (ขวา) -->
+    <aside class="w-80 bg-white flex flex-col h-full flex-shrink-0">
+        <!-- แถบรายชื่อคนออนไลน์จริงที่ทักเข้ามาบันทึกใน PC [ข้อ 2] -->
+        <div class="p-4 border-b border-gray-200 bg-gray-50/50">
+            <h2 class="font-bold text-sm text-gray-800 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span> สมาชิกออนไลน์ (MongoDB)
+            </h2>
+        </div>
+        <div id="onlineUsersGrid" class="flex-1 overflow-y-auto p-2 space-y-1.5 border-b border-gray-100">
+            <div class="text-center text-xs text-gray-400 py-4">⏳ รอตรวจสิทธิ์ล็อกอินเพื่อรับรายชื่อเพื่อน...</div>
+        </div>
+
+        <!-- กล่องประวัติแถบแจ้งข้อความคนทักแชทส่วนตัวล่าสุด [ข้อ 1] -->
+        <div class="p-4 border-b border-gray-200"><h2 class="font-bold text-xs text-gray-400 uppercase tracking-wider">กล่องข้อความล่าสุด</h2></div>
         <div id="recentChatsFeed" class="flex-1 overflow-y-auto divide-y divide-gray-100">
-            <!-- ประวัติแถบคนทักล่าสุดจะแสดงตรงนี้ -->
+            <!-- ประวัติคู่สนทนา 1 ต่อ 1 จะสแตนด์บายโผล่แจ้งเตือนจุดนี้ -->
         </div>
     </aside>
 
-    <!-- ==================== 4. ระบบสลับส่งแชทส่วนตัวแยกบุคคลด้วย JavaScript ==================== -->
+    <!-- ==================== 4. ระบบฟังก์ชันควบคุมเครือข่ายแชทสดด้วย JavaScript ==================== -->
     <script>
         let socket;
         let myName = "";
-        // อาร์เรย์สำหรับเก็บแยกประวัติข้อความของแต่ละคนคุย ป้องกันไม่ให้แชทสับสนกัน
+        let isRegisterMode = false; // สลับสถานะโหมดฟอร์ม (false = เข้าสู่ระบบ, true = สมัครสมาชิก)
         let privateMessageLogs = {}; 
 
-        function handleLogin() {
+        // 🔄 ฟังก์ชันสลับการแสดงผลของหน้าฟอร์ม (ล็อกอิน หรือ สมัครสมาชิก) [ข้อ 3]
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            const authTitle = document.getElementById('authTitle');
+            const authButton = document.getElementById('authButton');
+            const authSwitchText = document.getElementById('authSwitchText');
+            const authSwitchButton = document.getElementById('authSwitchButton');
+            const termsContainer = document.getElementById('termsContainer');
+
+            if (isRegisterMode) {
+                authTitle.innerText = "สร้างบัญชีสมาชิกรองรับรหัสผ่าน ลงข้อมูลใน PC 🚀";
+                authButton.innerText = "ลงทะเบียนสมัครสมาชิกฟรี 👤";
+                authSwitchText.innerText = "มีบัญชีผู้ใช้งานระบบอยู่แล้วใช่ไหม?";
+                authSwitchButton.innerText = "เข้าสู่ระบบตรงนี้";
+                termsContainer.classList.remove('hidden'); // แสดงนโยบายตอนสมัครสมาชิก
+            } else {
+                authTitle.innerText = "เข้าสู่ระบบเพื่อพบเพื่อนคุย ตลอด 24 ชั่วโมง";
+                authButton.innerText = "เข้าสู่ระบบแชท 🚀";
+                authSwitchText.innerText = "ยังไม่มีบัญชีผู้ใช้งานใช่ไหม?";
+                authSwitchButton.innerText = "สมัครสมาชิกฟรี";
+                termsContainer.classList.add('hidden'); // ซ่อนนโยบายออกไปตอนล็อกอิน
+            }
+        }
+
+        // 🚀 ฟังก์ชันจัดส่งข้อมูลเมื่อกดปุ่มหลัก ยิงส่งเข้า API หลังข้อมูลคอมพิวเตอร์ [ข้อ 3 + ข้อ 2]
+        async function handleSubmitAuth() {
             const username = document.getElementById('usernameInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
             const isAccepted = document.getElementById('termsCheckbox').checked;
 
-            if (!username) { alert("กรุณากรอกชื่อผู้ใช้งานก่อนเข้าเล่นระบบค่ะ!"); return; }
-            if (!isAccepted) { alert("โปรดกดยอมรับเงื่อนไขการใช้งานก่อนเข้าสู่ระบบเพื่อความปลอดภัยค่ะ"); return; }
+            if (!username || !password) {
+                alert("กรุณากรอกระบุชื่อผู้ใช้งานและรหัสผ่านให้ครบถ้วนด้วยค่ะ!");
+                return;
+            }
 
-            myName = username;
+            if (isRegisterMode && !isAccepted) {
+                alert("กรุณากดยอมรับเงื่อนไขนโยบายเพื่อบันทึกรหัสผ่านเข้าฐานข้อมูลคอมพิวเตอร์ก่อนค่ะ");
+                return;
+            }
 
-            // 🟢 เชื่อมระบบเข้าหลังบ้านเครื่อง PC แบบยืดหยุ่นอัตโนมัติ (รองรับทั้ง localhost และภายนอก)
-            socket = io();
-            
-            // ส่งสัญญาณแจ้งล็อกอินเซฟข้อมูลสมาชิกทุกคนลงฐานข้อมูล PC
+            // 🎯 สเต็ปยิงส่งระบบ: โหมดสมัครสมาชิกใหม่ (Register)
+            if (isRegisterMode) {
+                try {
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        alert(data.message);
+                        toggleAuthMode(); // สมัครเสร็จแล้วดีดกลับไปหน้าล็อกอินออโต้ทันที
+                    } else { alert(data.error); }
+                } catch (err) { alert("ระบบเชื่อมเซิร์ฟเวอร์หลังบ้าน PC ขัดข้องในการสมัครสมาชิกค่ะ"); }
+            } 
+            // 🎯 สเต็ปยิงส่งระบบ: โหมดเข้าสู่ระบบเดิม (Login)
+            else {
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        myName = data.username;
+                        startSocketChatSystem(); // ผ่านด่านรหัสผ่านสำเร็จ ปลดล็อกระบบแชทสดคู่ขนานทันที!
+                    } else { alert(data.error); }
+                } catch (err) { alert("ระบบเชื่อมเซิร์ฟเวอร์หลังบ้าน PC ขัดข้องในการเข้าสู่ระบบค่ะ"); }
+            }
+        }
+
+        // 🔌 สตาร์ทเปิดเครือข่ายแชทและเชื่อมพอร์ต Socket.io ความเร็วสูงเมื่อล็อกอินผ่านฉลุย
+        function startSocketChatSystem() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('currentUsername').innerText = myName;
+            document.getElementById('userAvatar').innerText = myName.charAt(0).toUpperCase();
+
+            socket = io(); // เปิดการเกาะสัญญาณแลนเครื่อง PC อัตโนมัติ
+
+            // ยิงแจ้งเตือนสถานะออนไลน์บันทึกรายชื่อลงฐานข้อมูล PC [ข้อ 2]
             socket.emit("user_connected", { username: myName });
 
-            socket.on("login_success", (data) => {
-                document.getElementById('loginModal').classList.add('hidden');
-                document.getElementById('currentUsername').innerText = myName;
-                document.getElementById('userAvatar').innerText = myName.charAt(0).toUpperCase();
-            });
-
-            // 📡 1. ดักฟังรายชื่ออัปเดตสมาชิกออนไลน์จริงจากฐานข้อมูล MongoDB มาแสดงตรงกลางจอ
+            // 📡 ดักฟังข้อมูลอัปเดตแผงรายชื่อเพื่อนที่กำลังออนไลน์อยู่สดๆ จากฐานข้อมูล MongoDB ในเครื่อง
             socket.on("update_online_list", (usersList) => {
-                const grid = document.getElementById('onlineUsersGrid');
-                grid.innerHTML = ""; // ล้างข้อมูลตัวอย่างเก่าออกทั้งหมด
+                const listContainer = document.getElementById('onlineUsersGrid');
+                listContainer.innerHTML = ""; 
 
                 usersList.forEach(user => {
-                    // หากเป็นชื่อตัวเอง จะไม่แสดงในตารางค้นหาเพื่อนคุย
-                    if (user === myName) return;
+                    if (user === myName) return; // ซ่อนชื่อตัวเองไม่ให้โผล่ในการ์ดเพื่อนคุย
 
-                    const userHtml = `
-                        <div onclick="openPrivateChat('${user}')" class="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 h-48 relative cursor-pointer hover:scale-[1.02] transition-all">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3">
-                                <span class="w-3 h-3 bg-green-500 rounded-full border-2 border-white absolute top-3 right-3"></span>
-                                <div class="text-white">
-                                    <p class="font-bold text-base">${user}</p>
-                                    <p class="text-xs opacity-90">🟢 ออนไลน์อยู่พร้อมคุย</p>
-                                </div>
+                    const rowHtml = `
+                        <div onclick="openPrivateChat('${user}')" class="p-2.5 bg-gray-50 hover:bg-pink-50 text-gray-700 hover:text-pink-600 rounded-xl flex items-center gap-3 cursor-pointer border border-gray-100 transition-all">
+                            <div class="w-8 h-8 bg-pink-400 text-white rounded-full flex items-center justify-center font-bold text-xs">${user.charAt(0).toUpperCase()}</div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold truncate">${user}</p>
+                                <p class="text-[10px] text-green-500 font-medium">● พร้อมคุยแชทส่วนตัว</p>
                             </div>
                         </div>
                     `;
-                    grid.insertAdjacentHTML('beforeend', userHtml);
+                    listContainer.insertAdjacentHTML('beforeend', rowHtml);
                 });
 
-                if (grid.innerHTML === "") {
-                    grid.innerHTML = `<div class="col-span-full text-center text-gray-400 py-8">🟢 กำลังรอสมาชิกร่วมแชทคนอื่นออนไลน์เข้ามาในระบบ PC...</div>`;
+                if (listContainer.innerHTML === "") {
+                    listContainer.innerHTML = `<div class="text-center text-xs text-gray-400 py-4">🟢 รอเพื่อนร่วมระบบล็อกอินเพื่อเปิดแชทส่วนตัว...</div>`;
                 }
             });
 
-            // 📩 2. ดักฟังข้อความแชทใหม่จากเพื่อนๆ (จัดการระบแยกห้องคุยไม่ให้ปะปนกัน)
+            // 📢 [ข้อ 4] ดักฟังรับข้อความ "ช่องแชทตรงกลางหน้าหลัก" ส่งต่อสดๆ ขึ้นหน้าจอทุกคน
+            socket.on("receive_public_message", (data) => {
+                const { sender, message, time } = data;
+                const publicArea = document.getElementById('publicChatMessageArea');
+                const isMe = (sender === myName);
+
+                const msgHtml = isMe ? `
+                    <div class="flex items-end justify-end gap-2">
+                        <span class="text-[9px] text-gray-400 mb-0.5">${time}</span>
+                        <div class="bg-pink-500 text-white p-2.5 rounded-2xl rounded-tr-none text-xs max-w-[70%] shadow-xs font-medium">คุณส่งกลาง: ${message}</div>
+                    </div>
+                ` : `
+                    <div class="flex flex-col gap-1 items-start">
+                        <span class="text-[10px] font-bold text-gray-400 ml-1">📢 ${sender}</span>
+                        <div class="flex items-end gap-2">
+                            <div class="bg-white text-gray-800 p-2.5 rounded-2xl rounded-tl-none text-xs max-w-[70%] shadow-xs border border-gray-200">${message}</div>
+                            <span class="text-[9px] text-gray-400 mb-0.5">${time}</span>
+                        </div>
+                    </div>
+                `;
+                publicArea.insertAdjacentHTML('beforeend', msgHtml);
+                publicArea.scrollTop = publicArea.scrollHeight; // เด้งสโครลบาร์ลงล่างสุดอัตโนมัติ
+            });
+
+            // 🎯 [ข้อ 1] ดักฟังข้อความแชทสด 1 ต่อ 1 แยกห้องคุยเก็บประวัติอาร์เรย์
             socket.on("receive_private_message", (data) => {
                 const { sender, message, time } = data;
 
-                // หากยังไม่เคยคุยกับคนนี้มาก่อน ให้สร้างกล่องเก็บล็อกข้อความว่างๆ ไว้
-                if (!privateMessageLogs[sender]) {
-                    privateMessageLogs[sender] = [];
-                }
-                
-                // ผลักข้อความของเพื่อนคนนี้เก็บไว้ในล็อกเฉพาะตัวเขา
+                if (!privateMessageLogs[sender]) privateMessageLogs[sender] = [];
                 privateMessageLogs[sender].push({ text: message, isMe: false, time: time });
 
-                // อัปเดตแถบฟีดแจ้งเตือนขวาสุด
                 updateRecentChatsFeed(sender, message);
 
-                // หากปัจจุบันกำลังเปิดกล่องแชททักคุยกับคนนี้อยู่พอดี ให้ดันข้อความขึ้นจอสดๆ ทันที
                 const currentChatTarget = document.getElementById('chatTargetName').innerText;
                 if (!document.getElementById('privateChatModal').classList.contains('hidden') && currentChatTarget === sender) {
-                    appendMessageHtml(message, false, time);
+                    appendPrivateMessageHtml(message, false, time);
                 }
             });
         }
 
-        // 🎯 ฟังก์ชันการเปิดกล่องแชทส่วนตัวแยกคุยทีละคน (สลับคุย 1 คน แต่อีก 2 คนจะไม่เห็น)
+        // 📢 [ข้อ 4] สั่งยิงข้อความกลางส่งกระจายไปโผล่จอสมาชิกทุกคนผ่านช่องแชทกลางตรงกลางจอ
+        function sendPublicMessage() {
+            const input = document.getElementById('publicChatInput');
+            const messageText = input.value.trim();
+            if (!messageText) return;
+
+            if (socket && socket.connected) {
+                socket.emit("send_public_message", {
+                    sender: myName,
+                    message: messageText
+                });
+            }
+            input.value = '';
+        }
+
+        // 🎯 [ข้อ 1] ฟังก์ชันเปิดสลับหน้าแชทบุคคลย้ายแยกประวัติสลับคุยได้หลายคน
         function openPrivateChat(targetName) {
             document.getElementById('chatTargetName').innerText = targetName;
             document.getElementById('chatTargetAvatar').innerText = targetName.charAt(0).toUpperCase();
             
-            // ล้างหน้าต่างแชทเดิมเพื่อดึงเฉพาะประวัติการคุยของคนที่เรากดคลิกมาโชว์
-            const chatArea = document.getElementById('chatMessageArea');
-            chatArea.innerHTML = `<div class="text-center text-xs text-gray-400 my-2">🔒 ข้อความคุยกับ ${targetName} ได้รับการเข้ารหัสคุ้มครองใน PC</div>`;
+            const privateArea = document.getElementById('chatMessageArea');
+            privateArea.innerHTML = `<div class="text-center text-[10px] text-gray-400 my-1">🔒 ประวัติคุยกับ ${targetName} ปลอดภัยใน PC ดาต้าเบส</div>`;
 
-            // ดึงประวัติที่เคยคุยค้างไว้ในอาร์เรย์ของคนๆ นี้ออกมาปูบนหน้าจอใหม่ทั้งหมด
             if (privateMessageLogs[targetName]) {
                 privateMessageLogs[targetName].forEach(chat => {
-                    appendMessageHtml(chat.text, chat.isMe, chat.time);
+                    appendPrivateMessageHtml(chat.text, chat.isMe, chat.time);
                 });
             }
 
             document.getElementById('privateChatModal').classList.remove('hidden');
-            scrollChatBottom();
+            privateArea.scrollTop = privateArea.scrollHeight;
         }
 
         function closePrivateChat() {
+
             document.getElementById('privateChatModal').classList.add('hidden');
-        }
-
-        // 🚀 สั่งยิงส่งข้อความส่วนตัวเจาะจงบุคคลผ่านช่องทางเซิร์ฟเวอร์ PC
-        function sendPrivateMessage() {
-            const input = document.getElementById('chatInput');
-            const messageText = input.value.trim();
-            const targetName = document.getElementById('chatTargetName').innerText;
-            if (!messageText) return;
-
-            const timeNow = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-
-            // 1. บันทึกข้อมูลข้อความของเราลงกล่องล็อกเฉพาะของคนคุยคนนี้
-            if (!privateMessageLogs[targetName]) privateMessageLogs[targetName] = [];
-            privateMessageLogs[targetName].push({ text: messageText, isMe: true, time: timeNow });
-
-            // 2. แสดงข้อความฝั่งเราบนหน้าต่างหน้าจอทันที
-            appendMessageHtml(messageText, true, timeNow);
-
-            // 3. ยิงสัญญาณสดเข้าหา Node.js PC เพื่อไปเซฟลง MongoDB และส่งหาปลายทางเจาะจงคนเดียว
-            if (socket && socket.connected) {
-                socket.emit("send_private_message", {
-                    sender: myName,
-                    target: targetName,
-                    message: messageText
-                });
-            }
-
-            input.value = '';
-            scrollChatBottom();
-        }
-
-        function appendMessageHtml(text, isMe, time) {
-            const chatArea = document.getElementById('chatMessageArea');
-            const messageHtml = isMe ? `
-                <div class="flex items-end justify-end gap-2">
-                    <span class="text-[10px] text-gray-400 mb-1">${time}</span>
-                    <div class="bg-pink-500 text-white p-3 rounded-2xl rounded-tr-none text-sm max-w-[75%] shadow-xs">${text}</div>
-                </div>
-            ` : `
-                <div class="flex items-end gap-2">
-                    <div class="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-none text-sm max-w-[75%] shadow-xs border border-gray-100">${text}</div>
-                    <span class="text-[10px] text-gray-400 mb-1">${time}</span>
-                </div>
-            `;
-            chatArea.insertAdjacentHTML('beforeend', messageHtml);
-            scrollChatBottom();
-        }
-
-        function updateRecentChatsFeed(user, lastMsg) {
+}
+// 🚀 ยิงข้อความส่วนตัวผ่านพอร์ตหลังบ้านเซฟลงฐานข้อมูลในคอม [ข้อ 1 + ข้อ 2]
+function sendPrivateMessage() {
+const input = document.getElementById('chatInput');
+const messageText = input.value.trim();
+const targetName = document.getElementById('chatTargetName').innerText;
+if (!messageText) return;
+const timeNow = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+if (!privateMessageLogs[targetName]) privateMessageLogs[targetName] = [];
+privateMessageLogs[targetName].push({ text: messageText, isMe: true, time: timeNow });
+appendPrivateMessageHtml(messageText, true, timeNow);
+if (socket && socket.connected) {
+socket.emit("send_private_message", {
+sender: myName,
+target: targetName,
+message: messageText
+});
+}
+input.value = '';
+}
+function appendPrivateMessageHtml(text, isMe, time) {
+const privateArea = document.getElementById('chatMessageArea');
+const msgHtml = isMe ? <div class="flex items-end justify-end gap-2"> <span class="text-[9px] text-gray-400 mb-0.5">${time}</span> <div class="bg-pink-500 text-white p-2.5 rounded-2xl rounded-tr-none text-xs max-w-[75%] shadow-xs">${text}</div> </div> : <div class="flex items-end gap-2"> <div class="bg-white text-gray-800 p-2.5 rounded-2xl rounded-tl-none text-xs max-w-[75%] shadow-xs border border-gray-100">${text}</div> <span class="text-[9px] text-gray-400 mb-0.5">${time}</span> </div>;
+privateArea.insertAdjacentHTML('beforeend', msgHtml);
+privateArea.scrollTop = privateArea.scrollHeight;
+}
+function updateRecentChatsFeed(user, lastMsg) {
             const feed = document.getElementById('recentChatsFeed');
-            // ลบแถบเก่าของคนนี้ออกก่อนถ้ามี เพื่อเลื่อนแถบล่าสุดขึ้นไปด้านบนสุดขวาจอ
             const oldRow = document.getElementById(`feed-row-${user}`);
             if (oldRow) oldRow.remove();
 
             const rowHtml = `
-                <div id="feed-row-${user}" onclick="openPrivateChat('${user}')" class="p-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer transition-all bg-pink-50/30">
-                    <div class="w-12 h-12 bg-pink-400 text-white rounded-full flex items-center justify-center font-bold">${user.charAt(0).toUpperCase()}</div>
+                <div id="feed-row-${user}" onclick="openPrivateChat('${user}')" class="p-2.5 flex items-center gap-2.5 hover:bg-gray-50 cursor-pointer transition-all bg-pink-50/20 border-b border-gray-50">
+                    <div class="w-9 h-9 bg-pink-400 text-white rounded-full flex items-center justify-center font-bold text-xs">${user.charAt(0).toUpperCase()}</div>
                     <div class="flex-1 min-w-0">
-                        <p class="font-bold text-sm text-gray-900">${user}</p>
-                        <p class="text-xs text-pink-600 truncate font-semibold">${lastMsg}</p>
+                        <p class="font-bold text-xs text-gray-900">${user}</p>
+                        <p class="text-[11px] text-pink-600 truncate font-medium">${lastMsg}</p>
                     </div>
                 </div>
             `;
             feed.insertAdjacentHTML('afterbegin', rowHtml);
         }
-
-        function scrollChatBottom() {
-            const chatArea = document.getElementById('chatMessageArea');
-            chatArea.scrollTop = chatArea.scrollHeight;
-        }
     </script>
 </body>
 </html>
+
 
 
