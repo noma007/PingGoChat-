@@ -104,20 +104,30 @@
         const recentChatList = document.getElementById('recent-chat-list');
 
         // 3. ระบบสมัครสมาชิก / ลงทะเบียนเข้าฐานข้อมูล PC
-        btnLogin.addEventListener('click', () => {
+          btnLogin.addEventListener('click', () => {
             const username = regUsername.value.trim();
             if(!username) return alert('กรุณากรอกชื่อผู้ใช้งานด้วยครับ');
             
             currentUsername = username;
+            
+            // ตรวจสอบการเชื่อมต่อ Socket ก่อนส่งข้อมูล
+            if (!socket.connected) {
+                alert('🔴 ระบบไม่ได้เชื่อมต่อกับเซิร์ฟเวอร์ PC กรุณารัน node server.js ก่อนครับ');
+                return;
+            }
+            
+            // 🎯 [จุดแก้ไข] ส่งสัญญาณลงทะเบียนเข้าฐานข้อมูล PC ให้ตรงกับฝั่ง server.js
             socket.emit('register_and_login', { username: username });
         });
 
-        // เปิดหน้าหลักแอปพลิเคชันเมื่อสมัครสมาชิก/ล็อกอินสำเร็จ
+        // 🎯 [จุดแก้ไข] ดักฟังการตอบรับจากฝั่ง PC เมื่อสมัครสำเร็จแล้วให้ปิดหน้ากากป๊อปอัพทันที
         socket.on('login_success', (data) => {
-            authOverlay.classList.add('hidden');
-            mainApp.classList.remove('hidden');
-            myName.innerText = currentUsername;
+            console.log("สมัครสมาชิกสำเร็จ:", data);
+            authOverlay.classList.add('hidden'); // ซ่อนป๊อปอัพสีขาว
+            mainApp.classList.remove('hidden'); // แสดงหน้าเว็บหลักด้านหลัง
+            myName.innerText = currentUsername;  // แสดงชื่อผู้ใช้ตรงเมนูด้านซ้าย
         });
+
 
         // 2 & 4. รับข้อมูลสมาชิกทุกคนจากฐานข้อมูล PC และวาดตารางกริดรูปภาพตรงกลางหน้าเว็บหลัก
         socket.on('sync_all_members', (users) => {
