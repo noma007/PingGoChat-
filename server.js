@@ -76,32 +76,39 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 💡 แก้ปัญหาข้อ 1: รับสัญญาณส่งแชทส่วนตัวหา 1 คน แต่กระจายบันทึกเป็นกลุ่มย่อยใน MongoDB
+  // 🎯 [แก้ไขแทนที่ทั้งหมด] ระบบกระจายแชทส่วนตัว (ส่งครั้งเดียว แยกส่ง 1-on-1 ไปหา 3 คนแบบลับๆ คนอื่นไม่เห็น)
   socket.on('send_multicast_message', async (data) => {
-    const { sender, targets, message } = data; // targets ส่งมาเป็นอาเรย์กลุ่ม เช่น ['พี่โต', 'น้องส้ม', 'เปี๊ยก']
+    const { sender, targets, message } = data; // targets = ['คนรับหลัก', 'น้องส้ม 🍊', 'เปี๊ยก หมอลำ 🎤']
 
-    // ฟอร์แมตโครงสร้างข้อมูลก่อนส่งบันทึกเข้าโปรแกรม Compass
-    const newChat = new Message({
-        sender: sender,
-        targets: targets, // จัดเก็บรายชื่อปลายทางทุกคนลงคอมถาวรในก้อนเดียว
-        message: message
-    });
+    // วนลูปเพื่อ "แยกส่ง" และ "แยกบันทึกประวัติ" แยกออกจากกันเป็นคนละกล่องอย่างเด็ดขาด
+    targets.forEach(async (target) => {
+        
+        // 🗄️ 1. แยกบันทึกประวัติแชทลง MongoDB PC เป็นรายบุคคล (คนอื่นจะไม่มีสิทธิ์เห็นข้อความก้อนนี้)
+        const privateChat = new Message({
+            sender: sender,
+            targets: [target], // บันทึกเจาะจงเฉพาะผู้รับคนนี้คนเดียวในประวัติแชทส่วนตัว
+            message: message
+        });
 
-    try {
-        await newChat.save(); // 🗄️ เซฟบันทึกประวัติการแชทลงฐานข้อมูลคอมพิวเตอร์ของคุณสำเร็จ!
-        console.log(`💾 บันทึกประวัติสำเร็จ: [ ${sender} ] -> ส่งหาเป้าหมายกระจาย [ ${targets.join(', ')} ]`);
+        try {
+            await privateChat.save();
+            console.log(`🔒 [Private Saved] บันทึกแชทลับ: [ ${sender} ] -> [ ${target} ]: "${message}"`);
 
-        // วนลูปส่งสัญญาณสะท้อนแชทสด Real-time ไปให้เพื่อนทุกคนที่ออนไลน์อยู่ได้รับทันที
-        targets.forEach(target => {
+            // ⚡ 2. ยิงสัญญาณ Real-time สดตรงเข้าห้องแชทส่วนตัวของคนนั้นคนเดียวผ่าน Socket ID
             const targetSocketId = activeUsers[target];
             if (targetSocketId) {
-                io.to(targetSocketId).emit('receive_multicast_message', { sender: sender, message: message, targets: targets });
+                io.to(targetSocketId).emit('receive_multicast_message', {
+                    sender: sender,
+                    message: message,
+                    targets: [target] // ระบุผู้รับเดี่ยวเพื่อความปลอดภัยของข้อมูล
+                });
             }
-        });
-    } catch (err) {
-        console.error('❌ ข้อความส่งไม่ถึงฐานข้อมูลในคอม:', err.message);
-    }
+        } catch (err) {
+            console.error('❌ บันทึกข้อความแชทลับผิดพลาด:', err.message);
+        }
+    });
   });
+
 
   socket.on('disconnect', async () => {
     for (let username in activeUsers) {
