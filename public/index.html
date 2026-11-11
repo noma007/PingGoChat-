@@ -306,6 +306,38 @@ document.addEventListener("DOMContentLoaded", () => {
             chatMessages.appendChild(div);
             chatMessages.scrollTop = chatMessages.scrollHeight; // สั่งออโต้สกรอลล์ลงล่างสุดอัตโนมัติ
         }
+
+        // เมื่อระบบตอบรับการล็อกอินสำเร็จ (เช่น ชื่อ Noma7452 เข้ามาออนไลน์)
+        socket.on('login_success', (data) => {
+            // นำชื่อผู้ใช้ตัวจริงจากเครื่อง PC ไปเซ็ตแสดงที่หน้าจอโปรไฟล์ส่วนตัวทันที
+            const profileNameText = document.getElementById('profile-display-name');
+            const profileLetter = document.getElementById('profile-avatar-letter');
+            
+            if (profileNameText) profileNameText.innerText = data.username;
+            if (profileLetter) profileLetter.innerText = data.username.charAt(0).toUpperCase();
+        });
+
+        // ดักจับเมื่อผู้ใช้เอาเมาส์ไปคลิกที่ปุ่มเมนู "👤 โปรไฟล์ของฉัน" ทางแถบซ้ายมือ
+        const menuProfileBtn = document.querySelector('.menu-left-btn') || document.getElementById('btn-profile-toggle');
+        
+        if (menuProfileBtn) {
+            menuProfileBtn.addEventListener('click', () => {
+                console.log("👤 ผู้ใช้กดสลับหน้าเพื่อเปิดดูโปรไฟล์ส่วนตัว");
+
+                const mainGridContainer = document.getElementById('grid-container'); // หน้าตารางรูปเพื่อนคนอื่น
+                const myProfileContainer = document.getElementById('profile-content'); // หน้าโปรไฟล์ส่วนตัวเรา
+
+                // สั่งซ่อนหน้ากริดเพื่อนคนอื่นออกไปชั่วคราว แล้วดึงแผงหน้าจอโปรไฟล์ส่วนตัว (SoiChat Style) ขึ้นมาแทนที่ทันที
+                if (mainGridContainer && myProfileContainer) {
+                    mainGridContainer.classList.add('hidden');
+                    mainGridContainer.style.display = 'none';
+                    
+                    myProfileContainer.classList.remove('hidden');
+                    myProfileContainer.style.display = 'flex';
+                }
+            });
+        }
+
     </script>
 </body>
 </html>
