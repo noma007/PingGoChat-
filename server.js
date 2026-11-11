@@ -25,6 +25,88 @@ let activeUsers = {};
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+// =========================================================================
+// 🎯 1. [วางต่อท้าย] ปลดล็อกสิทธิ์ความปลอดภัยเครือข่าย (CSP Bypass)
+// เพื่ออนุญาตให้เบราว์เซอร์ส่งข้อความสด และคุยกับฐานข้อมูลในคอม PC ได้โดยไม่โดนบล็อก
+// =========================================================================
+app.use((req, res, next) => {
+    res.setHeader("Content-Security-Policy", "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob:; style-src * 'unsafe-inline';");
+    next();
+});
+
+// 🌐 เปิดหน้าแรกของเว็บเมื่อมีการเรียกใช้งานพอร์ต 3000
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// =========================================================================
+// 🎯 2. [วางต่อท้าย] ระบบสลับเราเตอร์แชทกลุ่มย่อย บันทึกลง MongoDB PC ถาวร
+// =========================================================================
+io.on('connection', (socket) => {
+  console.log('🔌 [PingGo] มีอุปกรณ์เชื่อมต่อ Socket ID: ' + socket.id);
+
+  // ระบบดักฟังปุ่มสมัครสมาชิก/ล็อกอินบันทึกลง PC ยืนยันตัวตน
+  socket.on('register_and_login', async (data) => {
+    const username = data.username;
+    activeUsers[username] = socket.id; // ผูกไอดีไว้ในคลังหน่วยความจำคอมพิวเตอร์
+    console.log(`👤 ผู้ใช้ [ ${username} ] ลงทะเบียนสมาชิกใน PC สำเร็จ`);
+
+    try {
+        // บันทึกและอัปเดตสถานะออนไลน์เข้าสู่ฐานข้อมูล MongoDB จริงๆ
+        await User.findOneAndUpdate(
+            { username: username }, 
+            { isOnline: true }, 
+            { upsert: true, new: true }
+        );
+        socket.emit('login_success', { username: username });
+        await broadcastAllMembers(); // รีเฟรชรายชื่อส่งกลับไปบอร์ดกลาง
+    } catch (err) {
+        console.error('❌ สมัครสมาชิกล้มเหลว:', err.message);
+    }
+  });
+
+  // 💡 แก้ปัญหาข้อ 1: รับสัญญาณส่งแชทส่วนตัวหา 1 คน แต่กระจายบันทึกเป็นกลุ่มย่อยใน MongoDB
+  socket.on('send_multicast_message', async (data) => {
+    const { sender, targets, message } = data; // targets ส่งมาเป็นอาเรย์กลุ่ม เช่น ['พี่โต', 'น้องส้ม', 'เปี๊ยก']
+
+    // ฟอร์แมตโครงสร้างข้อมูลก่อนส่งบันทึกเข้าโปรแกรม Compass
+    const newChat = new Message({
+        sender: sender,
+        targets: targets, // จัดเก็บรายชื่อปลายทางทุกคนลงคอมถาวรในก้อนเดียว
+        message: message
+    });
+
+    try {
+        await newChat.save(); // 🗄️ เซฟบันทึกประวัติการแชทลงฐานข้อมูลคอมพิวเตอร์ของคุณสำเร็จ!
+        console.log(`💾 บันทึกประวัติสำเร็จ: [ ${sender} ] -> ส่งหาเป้าหมายกระจาย [ ${targets.join(', ')} ]`);
+
+        // วนลูปส่งสัญญาณสะท้อนแชทสด Real-time ไปให้เพื่อนทุกคนที่ออนไลน์อยู่ได้รับทันที
+        targets.forEach(target => {
+            const targetSocketId = activeUsers[target];
+            if (targetSocketId) {
+                io.to(targetSocketId).emit('receive_multicast_message', { sender: sender, message: message, targets: targets });
+            }
+        });
+    } catch (err) {
+        console.error('❌ ข้อความส่งไม่ถึงฐานข้อมูลในคอม:', err.message);
+    }
+  });
+
+  socket.on('disconnect', async () => {
+    for (let username in activeUsers) {
+      if (activeUsers[username] === socket.id) {
+        delete activeUsers[username];
+        try {
+            await User.findOneAndUpdate({ username: username }, { isOnline: false });
+            await broadcastAllMembers();
+        } catch (err) { console.error(err); }
+        break;
+      }
+    }
+  });
+});
+
+
 // 🌐 เปิดหน้าแรกของเว็บเมื่อมีการเรียกเข้าหน้าแอป
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
