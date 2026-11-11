@@ -58,6 +58,9 @@ app.get('/main', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/my-profile', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'profile.html'));
+});
 
 // =========================================================================
 // 🎯 2. [วางต่อท้าย] ระบบสลับเราเตอร์แชทกลุ่มย่อย บันทึกลง MongoDB PC ถาวร
@@ -137,11 +140,6 @@ io.on('connection', (socket) => {
   });
 });
 
-
-// 🌐 เปิดหน้าแรกของเว็บเมื่อมีการเรียกเข้าหน้าแอป
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 // 🖼️ ช่องทาง (API) สำหรับให้สมาชิกกดอัปโหลดรูปภาพเข้าอัลบั้มโปรไฟล์
 app.post('/api/upload-album', upload.single('photo'), async (req, res) => {
