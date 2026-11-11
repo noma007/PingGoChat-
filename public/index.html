@@ -12,18 +12,8 @@
 </head>
 <body>
 
-    <!-- 🔐 3. หน้ากากสมัครสมาชิก / เข้าสู่ระบบดาร์กโหมด (Auth Modal Overlay) -->
-    <div id="auth-overlay" class="modal-overlay">
-        <div class="modal-box">
-            <h2 style="margin-top: 0; color: #ec4899;">💬 เข้าใช้งาน PingGoChat</h2>
-            <p style="color: #888888; font-size: 14px;">หาเพื่อนคุย หาแฟน ตลอด 24 ชั่วโมง</p>
-            <input type="text" id="reg-username" class="input-text" placeholder="ชื่อผู้ใช้งาน (Username)" required>
-            <div style="text-align: left; margin-bottom: 16px; font-size: 12px; color: #888888;">
-                <input type="checkbox" id="accept-terms" checked> ฉันยอมรับข้อกำหนดและนโยบายความเป็นส่วนตัว
-            </div>
-            <button id="btn-login" class="btn-pink">เข้าเล่นฟรี 🚀</button>
-        </div>
-    </div>
+   <div id="auth-overlay" class="modal-overlay hidden" style="display: none !important;">
+
 
     <!-- 💻 หน้าตาเว็บหลักหลังจากผ่านการลงทะเบียนสำเร็จ -->
     <div id="main-app" class="hidden" style="height: 100%;">
