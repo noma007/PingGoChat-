@@ -76,39 +76,43 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 🎯 [แก้ไขแทนที่ทั้งหมด] ระบบกระจายแชทส่วนตัว (ส่งครั้งเดียว แยกส่ง 1-on-1 ไปหา 3 คนแบบลับๆ คนอื่นไม่เห็น)
+     // 🎯 [แก้ไขแทนที่ทั้งหมด] ระบบแชทส่วนตัว 1 ต่อ 1 ส่งให้ใคร คนนั้นเห็นคนเดียว 100%
   socket.on('send_multicast_message', async (data) => {
-    const { sender, targets, message } = data; // targets = ['คนรับหลัก', 'น้องส้ม 🍊', 'เปี๊ยก หมอลำ 🎤']
+    // รับข้อมูล: คนส่ง, targets (อาร์เรย์ที่มีชื่อคนรับแค่คนเดียวจากการที่เราคลิกคุย), และข้อความ
+    const { sender, targets, message } = data; 
+    
+    // ดึงชื่อผู้รับตัวจริงคนเดียวออกมาจากอาร์เรย์ (เช่น ถ้าคลิกคุยกับพี่โต ก็จะได้ชื่อพี่โตคนเดียว)
+    const realTarget = (Array.isArray(targets) && targets.length > 0) ? targets[0] : targets;
 
-    // วนลูปเพื่อ "แยกส่ง" และ "แยกบันทึกประวัติ" แยกออกจากกันเป็นคนละกล่องอย่างเด็ดขาด
-    targets.forEach(async (target) => {
-        
-        // 🗄️ 1. แยกบันทึกประวัติแชทลง MongoDB PC เป็นรายบุคคล (คนอื่นจะไม่มีสิทธิ์เห็นข้อความก้อนนี้)
-        const privateChat = new Message({
-            sender: sender,
-            targets: [target], // บันทึกเจาะจงเฉพาะผู้รับคนนี้คนเดียวในประวัติแชทส่วนตัว
-            message: message
-        });
+    if (!realTarget) return console.log("⚠️ ไม่พบชื่อผู้รับข้อความส่วนตัว");
 
-        try {
-            await privateChat.save();
-            console.log(`🔒 [Private Saved] บันทึกแชทลับ: [ ${sender} ] -> [ ${target} ]: "${message}"`);
+    console.log(`🔒 [Private Link] ${sender} กำลังส่งแชทส่วนตัวหา -> ${realTarget}`);
 
-            // ⚡ 2. ยิงสัญญาณ Real-time สดตรงเข้าห้องแชทส่วนตัวของคนนั้นคนเดียวผ่าน Socket ID
-            const targetSocketId = activeUsers[target];
-            if (targetSocketId) {
-                io.to(targetSocketId).emit('receive_multicast_message', {
-                    sender: sender,
-                    message: message,
-                    targets: [target] // ระบุผู้รับเดี่ยวเพื่อความปลอดภัยของข้อมูล
-                });
-            }
-        } catch (err) {
-            console.error('❌ บันทึกข้อความแชทลับผิดพลาด:', err.message);
-        }
+    // 🗄️ 1. บันทึกประวัติแชทลง MongoDB PC แบบระบุคู่สนทนาตัวต่อตัวเด็ดขาด (คนอื่นไม่มีสิทธิ์เห็น)
+    const privateChatMessage = new Message({
+        sender: sender,
+        targets: [realTarget], // บันทึกชื่อผู้รับคนนี้คนเดียวลงฐานข้อมูล
+        message: message
     });
-  });
 
+    try {
+        await privateChatMessage.save();
+        console.log(`💾 [MongoDB Saved] บันทึกแชทส่วนตัวคู่สนทนา [ ${sender} ] กับ [ ${realTarget} ] เรียบร้อย`);
+
+        // ⚡ 2. ยิงสัญญาณสด Real-time ส่งตรงเข้าเบราว์เซอร์ของผู้รับคนนี้คนเดียวเท่านั้น!
+        const targetSocketId = activeUsers[realTarget];
+        if (targetSocketId) {
+            // ยิงสัญญาณเจาะจงไปที่ Socket ID ของผู้รับคนเดียว คนอื่นในระบบจะไม่มีทางได้รับข้อความนี้
+            io.to(targetSocketId).emit('receive_multicast_message', {
+                sender: sender,
+                message: message,
+                targets: [realTarget]
+            });
+        }
+    } catch (err) {
+        console.error('❌ ระบบหลังบ้านบันทึกแชทส่วนตัวผิดพลาด:', err.message);
+    }
+  });
 
   socket.on('disconnect', async () => {
     for (let username in activeUsers) {
